@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>信頼性の担保と検証手順</title>
+<style>
+:root{--line:#d4d8dd;--ink:#1f2933;--muted:#66727f;--bg:#f6f7f9;--accent:#1d4ed8;--warn-bg:#fff7ed;--warn-line:#fdba74;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.8;}
+header{background:#fff;border-bottom:2px solid var(--ink);padding:22px 20px;}
+header h1{margin:0 0 4px;font-size:22px;}
+header .sub{color:var(--muted);font-size:13px;}
+main{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin-bottom:18px;}
+section h2{font-size:17px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+section h3{font-size:15px;margin:18px 0 6px;}
+p{margin:8px 0;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0;}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+th{background:#f1f3f5;}
+ul,ol{padding-left:24px;margin:8px 0;}
+li{margin:4px 0;font-size:14px;}
+code{background:#f1f3f5;padding:1px 6px;border-radius:3px;font-size:13px;}
+a{color:var(--accent);}
+.banner{border-left:5px solid var(--warn-line);background:var(--warn-bg);padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:14px;}
+.banner strong{display:block;margin-bottom:4px;}
+.back{font-size:13px;margin-bottom:14px;display:inline-block;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>信頼性の担保と検証手順</h1>
+  <div class="sub">自作ツールで年末調整データを集める場合に、何をどう担保し、どう検証するか</div>
+</header>
+
+<main>
+
+  <a class="back" href="../index.html">← トップへ戻る</a>
+
+  <div class="banner">
+    <strong>このツールは控除額・税額を計算しません</strong>
+    金額は事実（払込額・見積額）として集めるだけです。控除額の判定と税額の計算は給与システム側で行ってください。
+  </div>
+
+  <section>
+    <h2>1. 信頼性は1つの性質ではない</h2>
+    <p>「信頼できるのか」と一括で問うと議論が終わりません。少なくとも次の5つの軸に分けてから潰します。</p>
+    <table>
+      <tr><th>軸</th><th>何が問われるか</th><th>担保の方法</th></tr>
+      <tr><td>正確性</td><td>値が正しく、必要な項目が漏れていないか</td><td>入力時の必須・形式・矛盾チェック、人事側の再検証、前年差分レビュー、回帰テスト</td></tr>
+      <tr><td>真正性</td><td>本人が申告した内容であり、後から書き換えられていないか</td><td>確認書への自署押印、提出日時・職員番号・ツール版の記録、保存場所のアクセス権</td></tr>
+      <tr><td>監査可能性</td><td>後から経緯を説明できるか</td><td>提出記録の保存、要確認リストの履歴、変更履歴、確認書原本の保管</td></tr>
+      <tr><td>可用性</td><td>担当が変わっても回るか、年度更新に追随できるか</td><td>手順書、テスト記録、担当の複数化</td></tr>
+      <tr><td>機密性</td><td>個人情報が漏れないか</td><td>サーバーを持たない構成、保存場所と期間の明示、共有フォルダのアクセス権による統制</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. 最も重要な設計判断：ツールの位置づけを下げる</h2>
+    <p><strong>このツールを「法定申告書を作るツール」と定義しないでください。</strong>「人事が内容を確定するための、一次データ収集・検証ツール」と定義します。この定義にすると、要求される信頼性の水準が現実的になります。</p>
+    <p>法定申告書そのものの真正性は、従来どおり次のいずれかで担保します。</p>
+    <ol>
+      <li><strong>書面で確定する</strong>。ツールが出力する確認書に自署押印し、それを内容確認票として保管する。</li>
+      <li><strong>公式ソフトに転記して確定する</strong>。国税庁の年調ソフトに転記し、公式の控除申告書データとして提出する。</li>
+      <li><strong>給与システムの取込機能で確定する</strong>。給与システムがCSV取込を公式にサポートしている場合、それを原本とする。</li>
+    </ol>
+    <p>国税庁は「従業員から提供を受ける年末調整申告書データや控除証明書等データを、ご利用の給与システム等にインポートし、年税額等の計算を行うためのシステムの改修等を行います」と整理しています。つまり<strong>「従業員がデータを作り、給与システムに取り込む」という流れ自体は公式の想定と同じ方向</strong>です。違うのは、そのデータを作るのが公式ソフトか自作ツールか、という点だけです。</p>
+  </section>
+
+  <section>
+    <h2>3. チェックサムの限界</h2>
+    <p>このツールは、提出CSVにチェックサム（SHA-256、利用できない環境ではFNV1a-32）を付与し、人事側の取り込み時に自動照合します。</p>
+    <p><strong>これは事故と改変の「検知」には有効ですが、悪意ある改ざんに対する真正性の担保にはなりません。</strong>同じツールを使えば誰でも正しいチェックサムを再生成できるからです。真正性は、次の組み合わせで担保してください。</p>
+    <ul>
+      <li>確認書への自署・押印（原本の保管）</li>
+      <li>提出日時・職員番号・ツール版の記録（各レコードに埋め込み済み）</li>
+      <li>提出ファイルの保存場所をアクセス権で統制する</li>
+      <li>受領記録（誰からいつ受け取ったか）を残す</li>
+    </ul>
+    <p>チェックサムの価値は、共有フォルダ経由でファイルが壊れた、転送中に文字化けした、後から誰かが数値を書き換えた、といった<strong>偶発的な問題に気づける</strong>点にあります。</p>
+  </section>
+
+  <section>
+    <h2>4. 検証手順（回帰テスト）</h2>
+    <p>信頼性は主張ではなく、テストで示します。前年分の紙の申告書が手元にあるなら、それが最高の正解データになります。</p>
+    <ol>
+      <li>前年分の紙の申告書から、<strong>無作為に20件</strong>を選びます（部署・年齢・扶養の有無が偏らないように）。</li>
+      <li>その20件を、このツールで入力します。</li>
+      <li>出力したCSVと、紙の申告書の記載内容を、項目ごとに突き合わせます。</li>
+      <li>一致しなかった項目について、原因を分類します（欄が足りない／選択肢が合わない／転記ミス／様式の理解違い）。</li>
+      <li>修正後、もう一度同じ20件で突き合わせます。</li>
+    </ol>
+    <h3>合格基準の例</h3>
+    <ul>
+      <li>必須項目の一致率：100%</li>
+      <li>金額項目の一致率：100%</li>
+      <li>選択項目（続柄・同居区分など）の一致率：100%</li>
+    </ul>
+    <p><strong>一致率100%に達するまで本番運用しないでください。</strong>ここで残った不一致は、本番では必ず人事の手作業として跳ね返ってきます。</p>
+    <h3>並行運用</h3>
+    <p>回帰テストの次は、<strong>1部署だけを選んで、紙とツールの二本立てで1年運用します。</strong></p>
+    <ul>
+      <li>紙の申告書は従来どおり提出してもらう（これが原本）。</li>
+      <li>同時にツールにも入力してもらい、両者を突き合わせます。</li>
+      <li>突合の結果を記録として残します。</li>
+    </ul>
+    <p>この1年分の突合記録が、翌年からツール本番に切り替えるための、いちばん強い証拠になります。「試作をいきなり本番」ではなく「1部署で1年並行」が、信頼性に関する議論を終わらせます。</p>
+  </section>
+
+  <section>
+    <h2>5. 税務上の位置づけについて、確認すべき質問リスト</h2>
+    <p>以下は、所轄税務署または顧問税理士、組織内の税務担当に確認してください。<strong>回答を文書で残すことを強く勧めます。</strong></p>
+    <ol>
+      <li>年末調整の控除申告書について、従業員から勤務先への提供を電磁的方法で行う場合、書面の自署押印は必要ですか。</li>
+      <li>電磁的方法で提供する場合、データの形式や作成方法に要件はありますか（国税庁の年調ソフトによる作成が前提とされていますか）。</li>
+      <li>独自の様式（Webフォーム）で収集したデータを、人事が内容を確認したうえで法定の様式に確定する運用は、税務上問題がありますか。</li>
+      <li>控除証明書等の原本または写しの保管は、電子データで代替できますか。できない場合、何を保管すべきですか。</li>
+      <li>給与システムがCSV取込に対応している場合、その取込データを申告書の原本として扱えますか。</li>
+      <li>税務調査の際に、電磁的記録の提出を求められた場合、どのような形で提示すればよいですか。</li>
+      <li>令和8年分の様式変更（基礎控除の特例加算、扶養控除等申告書の「源泉控除対象親族」への改正、保険料控除申告書の「年齢23歳未満の扶養親族の有無」欄の追加など）について、追加対応が必要な点はありますか。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>6. 可用性（属人化を避ける）</h2>
+    <ul>
+      <li>変更内容・変更者・日付・理由を記録してください。</li>
+      <li>年度更新の手順（<code>TOOL_VERSION</code> と <code>FORM_YEAR</code> の更新、様式との突合、回帰テスト）を毎年同じ手順で回してください。</li>
+      <li>担当者は1人にしないでください。最低2人が、ファイルの場所・年度更新手順・テストの回し方を知っている状態にします。これは災害時の事業継続の観点でも説明できます。</li>
+      <li>国税庁の年調ソフトは毎年10月頃に新しい年版が公開されます。様式の確定版もあわせて確認し、年度当初に差分を洗い出してください。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>7. 機密性</h2>
+    <ul>
+      <li>このツールはサーバーを持たないため、<strong>アクセスログが取れません。</strong>これは弱点です。</li>
+      <li>したがって、<strong>保存場所と保存期間を決め、共有フォルダのアクセス権で統制してください。</strong></li>
+      <li>私物端末で入力する運用（BYOD）にする場合は、情報管理担当の事前合意が必須です。私物端末は利用場所・アプリ・アクセス先の統制が効かないため、リスクが上がります。</li>
+      <li>提出が済んだファイルは、決めた保存期間を過ぎたら確実に削除してください。</li>
+    </ul>
+  </section>
+
+</main>
+
+</body>
+</html>
