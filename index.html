@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>年末調整 申告データ 収集・検証ツール（令和8年分）</title>
+<style>
+:root{--line:#d4d8dd;--ink:#1f2933;--muted:#66727f;--bg:#f6f7f9;--accent:#1d4ed8;--warn-bg:#fff7ed;--warn-line:#fdba74;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.8;}
+header{background:#fff;border-bottom:2px solid var(--ink);padding:28px 20px 22px;}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px;}
+header h1{margin:0 0 6px;font-size:24px;line-height:1.4;}
+header .sub{color:var(--muted);font-size:14px;}
+main{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:8px 0 28px;}
+.card{display:block;background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 20px;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s;}
+.card:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(29,78,216,.12);}
+.card .role{font-size:12px;color:var(--muted);}
+.card h2{margin:4px 0 8px;font-size:18px;}
+.card p{margin:0;font-size:13px;color:var(--muted);}
+section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:18px;}
+section > h2{font-size:16px;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+.banner{border-left:5px solid var(--warn-line);background:var(--warn-bg);padding:14px 18px;border-radius:6px;margin-bottom:22px;font-size:14px;}
+.banner strong{display:block;margin-bottom:4px;}
+ul{padding-left:22px;margin:0;}
+li{margin:4px 0;font-size:14px;}
+code{background:#f1f3f5;padding:1px 6px;border-radius:3px;font-size:13px;}
+a{color:var(--accent);}
+footer{max-width:900px;margin:0 auto;padding:0 20px 40px;color:var(--muted);font-size:12px;}
+@media(max-width:640px){.cards{grid-template-columns:1fr;}header h1{font-size:20px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>年末調整 申告データ 収集・検証ツール</h1>
+    <div class="sub">令和8年分 ／ インストール不要 ／ 通信不要 ／ 控除額・税額の計算は行いません</div>
+  </div>
+</header>
+
+<main>
+
+  <div class="banner">
+    <strong>このツールは控除額・税額を計算しません</strong>
+    入力された内容をデータとして集約し、人事担当者が確認するための一次資料を作るツールです。控除額の判定と税額の計算は、給与システム側で行ってください。申告内容の確定は、担当者の確認を経て行われます。
+  </div>
+
+  <div class="cards">
+    <a class="card" href="staff.html">
+      <div class="role">職員用</div>
+      <h2>申告データを入力する</h2>
+      <p>質問に沿って入力し、入力チェックを受けて、提出用CSVと確認書を出力します。下書きは翌年に読み込めます。</p>
+    </a>
+    <a class="card" href="admin.html">
+      <div class="role">人事用</div>
+      <h2>提出データを集約・検証する</h2>
+      <p>集めたCSVをまとめて読み込み、記入漏れ・矛盾・前年との差・未提出者を自動で洗い出します。</p>
+    </a>
+  </div>
+
+  <section>
+    <h2>このツールで置き換えられること</h2>
+    <ul>
+      <li>紙の申告書の配布・回収</li>
+      <li>人事による全件の目視検算（機械が先に例外を出します）</li>
+      <li>記入漏れ・区分違い・桁違いの後追い修正</li>
+      <li>未提出者の聞き取り調査（名簿と突合して抽出します）</li>
+      <li>毎年同じ内容を書き直す手間（前年の下書きを読み込めます）</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>このツールが行わないこと</h2>
+    <ul>
+      <li>控除額・税額の計算</li>
+      <li>マイナポータル連携による控除証明書データの取得</li>
+      <li>法定調書・源泉徴収票の作成</li>
+      <li>申告内容の確定</li>
+    </ul>
+    <p style="font-size:13px;color:var(--muted);margin:10px 0 0;">
+      金額は「事実（払込額・見積額）」として集めるだけです。判定と計算は給与システムに渡す設計にしています。令和8年分は様式が大きく変わる年であり、控除額を自前で計算するのはリスクが大きいためです。
+    </p>
+  </section>
+
+  <section>
+    <h2>動作確認用サンプル</h2>
+    <p style="font-size:14px;margin:0 0 10px;">
+      <code>admin.html</code> を開いて、次のファイルを読み込むと動作を確認できます。氏名・住所はすべて架空のものです。
+    </p>
+    <ul>
+      <li><a href="samples/submit_ok.csv">samples/submit_ok.csv</a> … 問題のない提出（状態OK、チェックサム一致）</li>
+      <li><a href="samples/submit_issues.csv">samples/submit_issues.csv</a> … 誤りを入れた提出（要修正として指摘されます）</li>
+      <li><a href="samples/submit_tampered.csv">samples/submit_tampered.csv</a> … 数値を後から書き換えた提出（チェックサム不一致）</li>
+      <li><a href="samples/prev_year.csv">samples/prev_year.csv</a> … 前年データ（差分レビュー用）</li>
+      <li><a href="samples/roster.csv">samples/roster.csv</a> … 職員名簿（未提出者の抽出用）</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>導入前に確認すること</h2>
+    <ul>
+      <li>申告データは氏名・住所・生年月日・収入・世帯構成を含む個人情報です。保存場所、保存期間、アクセス権を先に決めてください。</li>
+      <li>電磁的記録による提供で足りるか、書面の自署押印が必要かは、所轄税務署または顧問税理士に確認してください。</li>
+      <li>様式は毎年変わります。国税庁が公表する確定版と、このツールの欄の名称・並びを突き合わせてください。</li>
+      <li>本番運用の前に、前年分の申告書で回帰テストを行い、一致率100%を確認してください。手順は <a href="docs/verification.html">検証手順</a> にまとめています。</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  本ツールは非公式の試作であり、国税庁およびいかなる自治体・団体とも関係ありません。実在の個人情報は含みません。ライセンスは MIT です。
+</footer>
+
+</body>
+</html>
