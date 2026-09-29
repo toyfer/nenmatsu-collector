@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>年末調整 申告データ集約・検証（人事用）</title>
+<style>
+:root {
+  --line: #d4d8dd; --ink: #1f2933; --muted: #66727f; --bg: #f6f7f9; --accent: #1d4ed8;
+  --warn-bg: #fff7ed; --warn-line: #fdba74; --err-bg: #fef2f2; --err-line: #fca5a5;
+  --ok-bg: #f0fdf4; --ok-line: #86efac;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  color: var(--ink); background: var(--bg); font-size: 15px; line-height: 1.7; }
+header { background: #fff; border-bottom: 2px solid var(--ink); padding: 14px 20px; }
+header h1 { margin: 0 0 4px; font-size: 19px; }
+header .sub { color: var(--muted); font-size: 13px; }
+main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+section { background: #fff; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 18px; padding: 16px 18px; }
+section > h2 { font-size: 16px; margin: 0 0 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+section > .note { color: var(--muted); font-size: 13px; margin: 8px 0 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { border: 1px solid var(--line); padding: 5px 6px; text-align: left; vertical-align: top; }
+th { background: #f1f3f5; font-weight: 600; white-space: nowrap; }
+button { font: inherit; padding: 8px 16px; border-radius: 4px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+button:hover { background: #f1f3f5; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #1e40af; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; }
+.banner { border-left: 5px solid var(--warn-line); background: var(--warn-bg); padding: 12px 16px; border-radius: 4px; margin-bottom: 18px; font-size: 14px; }
+.banner strong { display: block; margin-bottom: 4px; }
+.msg { border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-top: 10px; display: none; }
+.msg.show { display: block; }
+.msg.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+.msg.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+.msg.err { background: var(--err-bg); border: 1px solid var(--err-line); }
+.msg ul { margin: 6px 0 0; padding-left: 20px; }
+.hint { font-size: 12px; color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.stat { border: 1px solid var(--line); border-radius: 4px; padding: 8px 14px; background: #fff; min-width: 130px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-size: 20px; font-weight: 700; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); }
+.tag.err { background: var(--err-bg); border-color: var(--err-line); color: #b91c1c; }
+.tag.warn { background: var(--warn-bg); border-color: var(--warn-line); color: #b45309; }
+.tag.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #15803d; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>年末調整 申告データ集約・検証（人事用）</h1>
+  <div class="sub">様式年度：令和8年分 ／ ツール版：v1.1.0 ／ 1ファイル完結・インストール不要・通信不要</div>
+</header>
+
+<main>
+
+  <div class="banner">
+    <strong>このツールは控除額・税額を計算しません</strong>
+    職員が入力したデータを集約し、記入漏れ・矛盾・前年との差を機械的に洗い出すためのツールです。抽出された例外だけを職員に確認すれば、全件の目視検算が不要になります。控除額の判定と税額の計算は給与システム側で行ってください。
+  </div>
+
+  <section>
+    <h2>1. 提出データの取り込み</h2>
+    <p class="note">職員から集めたCSV（またはJSON）を、まとめて選択してください。チェックサムは取り込み時に自動照合します。</p>
+    <div class="actions">
+      <input type="file" id="files" multiple accept=".csv,.json,text/csv,application/json">
+      <button type="button" id="btnClearAll">読み込みをやり直す</button>
+    </div>
+    <div class="msg" id="loadMsg"></div>
+  </section>
+
+  <section>
+    <h2>2. 職員名簿（未提出者の抽出用）</h2>
+    <p class="note">「職員番号,氏名,所属」のヘッダー行を持つCSVを読み込むと、未提出者を抽出できます。</p>
+    <div class="actions">
+      <input type="file" id="roster" accept=".csv,text/csv">
+      <span class="hint">形式：職員番号,氏名,所属</span>
+    </div>
+    <div class="msg" id="rosterMsg"></div>
+  </section>
+
+  <section>
+    <h2>3. 前年データ（差分レビュー用）</h2>
+    <p class="note">前年に提出されたCSVを読み込むと、金額の桁違いや扶養人数の急変を自動でフラグします。回帰テスト（検証）にも同じ機能を使えます。</p>
+    <div class="actions">
+      <input type="file" id="prev" accept=".csv,text/csv">
+      <span class="hint">形式：このツールが出力したCSV</span>
+    </div>
+    <div class="msg" id="prevMsg"></div>
+  </section>
+
+  <section>
+    <h2>4. 集約結果</h2>
+    <div class="stats" id="stats"></div>
+    <div class="actions">
+      <button type="button" class="primary" id="btnExportAgg">給与システム取込用CSVを出力</button>
+      <button type="button" id="btnExportIssues">要確認リストをCSV出力</button>
+      <button type="button" id="btnPrintList">一覧を印刷</button>
+    </div>
+    <div class="scroll" style="margin-top:14px;">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th>状態</th><th>職員番号</th><th>氏名</th><th>所属</th><th>配偶者</th>
+            <th>扶養</th><th>23歳未満</th><th>所得見積</th><th>生命保険計</th>
+            <th>住宅</th><th>残高</th><th>チェックサム</th><th>指摘</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 未提出者</h2>
+    <div class="scroll">
+      <table id="missingTable">
+        <thead><tr><th>職員番号</th><th>氏名</th><th>所属</th></tr></thead>
+        <tbody><tr><td colspan="3" class="hint">名簿を読み込むと表示されます。</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 前年との差分（要確認）</h2>
+    <div class="scroll">
+      <table id="diffTable">
+        <thead><tr><th>職員番号</th><th>氏名</th><th>項目</th><th>前年</th><th>今年</th><th>所見</th></tr></thead>
+        <tbody><tr><td colspan="6" class="hint">前年データを読み込むと表示されます。</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>このツールが行わないこと</h2>
+    <ul style="margin:0;padding-left:20px;font-size:14px;">
+      <li>控除額・税額の計算</li>
+      <li>法定調書・源泉徴収票の作成</li>
+      <li>申告内容の確定（最終判断は担当者の確認によります）</li>
+    </ul>
+    <p class="hint" style="margin-top:10px;">チェックサムは、ファイルが壊れたり後から書き換えられたりした場合の検知には有効ですが、同じツールで作り直せるため、悪意ある改ざんに対する真正性の担保にはなりません。真正性は、確認書の自署押印、提出記録、保存場所のアクセス権によって担保してください。</p>
+  </section>
+
+</main>
+
+<script>
+const TOOL_VERSION = 'v1.1.0';
+const FORM_YEAR = '令和8年分';
+
+const COLS = [
+  'レコード種別', 'ツール版', '様式年度', '提出日時',
+  '職員番号', '氏名', '所属',
+  '配偶者有無', '源泉控除対象配偶者_氏名', '源泉控除対象配偶者_生年月日',
+  '源泉控除対象配偶者_所得見積額', '源泉控除対象配偶者_住所',
+  '扶養親族数', '扶養親族明細', '異動月日事由', '23歳未満扶養親族有無',
+  '合計所得金額見積額', '配偶者控除等申告書', '所得金額調整控除申告書',
+  '生命保険料_新_一般', '生命保険料_新_介護医療', '生命保険料_新_個人年金',
+  '生命保険料_旧_一般', '生命保険料_旧_個人年金', '地震保険料',
+  '社会保険料', '小規模企業共済等掛金',
+  '住宅借入金等_有無', '住宅借入金等_年末残高', '住宅借入金等_連帯債務',
+  '本人確認', '備考', 'チェックサム方式', 'チェックサム'
+];
+const BODY_LEN = COLS.length - 2;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s === undefined || s === null ? '' : s)
+  .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let records = [];
+let roster = [];
+let prevMap = new Map();
+let prevLoaded = false;
+
+function parseCSV(text) {
+  const s = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) {
+      if (c === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (c === '\r') { /* skip */ }
+    else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x !== ''));
+}
+
+function csvCell(v) {
+  const s = v === undefined || v === null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function download(filename, text) {
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function fnv1a32(str) {
+  const bytes = new TextEncoder().encode(str);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+async function verifyChecksum(row) {
+  const method = row[BODY_LEN], expect = row[BODY_LEN + 1];
+  if (!method || !expect) return 'none';
+  const body = row.slice(0, BODY_LEN).join('\u001f');
+  if (method === 'SHA-256' && window.crypto && window.crypto.subtle) {
+    try {
+      const buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
+      const hex = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+      return hex === expect ? 'ok' : 'mismatch';
+    } catch (e) { return 'unknown'; }
+  }
+  if (method === 'FNV1a-32') return fnv1a32(body) === expect ? 'ok' : 'mismatch';
+  return 'unknown';
+}
+
+const isNum = (v) => v === '' || /^[0-9]+$/.test(v);
+const num = (v) => (v === '' || isNaN(Number(v)) ? 0 : Number(v));
+
+function validate(r) {
+  const out = [];
+  const need = (i, label) => { if (!r[i]) out.push({ level: 'err', msg: label + 'が未入力です。' }); };
+  need(4, '職員番号'); need(5, '氏名'); need(6, '所属');
+  need(7, '配偶者の有無'); need(15, '23歳未満扶養親族の有無');
+  need(16, '合計所得金額見積額'); need(27, '住宅借入金等の有無');
+
+  if (r[4] && !/^[0-9]+$/.test(r[4])) out.push({ level: 'err', msg: '職員番号が半角数字ではありません。' });
+
+  [['合計所得金額見積額', 16], ['生命保険料_新_一般', 19], ['生命保険料_新_介護医療', 20],
+   ['生命保険料_新_個人年金', 21], ['生命保険料_旧_一般', 22], ['生命保険料_旧_個人年金', 23],
+   ['地震保険料', 24], ['社会保険料', 25], ['小規模企業共済等掛金', 26],
+   ['住宅借入金等_年末残高', 28], ['源泉控除対象配偶者_所得見積額', 10]].forEach(([label, idx]) => {
+    if (!isNum(r[idx])) out.push({ level: 'err', msg: label + 'が数値ではありません（' + esc(r[idx]) + '）。' });
+  });
+
+  if (r[7] === '無' && (r[8] || r[9] || r[10] || r[11])) {
+    out.push({ level: 'err', msg: '配偶者「無」なのに源泉控除対象配偶者の欄が入力されています。' });
+  }
+  if (r[7] === '有' && !r[8]) {
+    out.push({ level: 'warn', msg: '配偶者「有」ですが源泉控除対象配偶者の氏名が空です（所得要件外なら記載不要）。' });
+  }
+  if (r[27] === '有' && num(r[28]) === 0) {
+    out.push({ level: 'err', msg: '住宅借入金等「有」ですが年末残高が0または空です。' });
+  }
+  if (r[27] === '無' && num(r[28]) > 0) {
+    out.push({ level: 'err', msg: '住宅借入金等「無」なのに年末残高が入力されています。' });
+  }
+
+  const depStr = r[13] || '';
+  const depArr = depStr ? depStr.split(';').filter(Boolean) : [];
+  if (Number(r[12]) !== depArr.length) {
+    out.push({ level: 'err', msg: '扶養親族数（' + esc(r[12]) + '）と明細の件数（' + depArr.length + '）が一致しません。' });
+  }
+  depArr.forEach((d, i) => {
+    const parts = d.split('|');
+    if (parts.length !== 6) out.push({ level: 'err', msg: '扶養親族 ' + (i + 1) + ' 件目の明細形式が不正です。' });
+    else {
+      if (!parts[0]) out.push({ level: 'err', msg: '扶養親族 ' + (i + 1) + ' 件目の氏名が空です。' });
+      if (!parts[1]) out.push({ level: 'err', msg: '扶養親族 ' + (i + 1) + ' 件目の続柄が空です。' });
+      if (!parts[3]) out.push({ level: 'err', msg: '扶養親族 ' + (i + 1) + ' 件目の同居区分が空です。' });
+      if (parts[4] === '' || !/^[0-9]+$/.test(parts[4])) out.push({ level: 'err', msg: '扶養親族 ' + (i + 1) + ' 件目の所得見積額が数値ではありません。' });
+    }
+  });
+  if (r[15] === '有' && depArr.length === 0) {
+    out.push({ level: 'warn', msg: '23歳未満の扶養親族「有」ですが扶養親族の記載がありません。' });
+  }
+  if (r[30] !== '確認済') out.push({ level: 'err', msg: '本人確認のチェックがありません。' });
+  if (r[1] && r[1] !== TOOL_VERSION) out.push({ level: 'warn', msg: 'ツール版が ' + esc(r[1]) + ' です（想定 ' + TOOL_VERSION + '）。' });
+  if (r[2] && r[2] !== FORM_YEAR) out.push({ level: 'warn', msg: '様式年度が ' + esc(r[2]) + ' です（想定 ' + FORM_YEAR + '）。' });
+  return out;
+}
+
+async function addFromText(text, fileName) {
+  const rows = parseCSV(text);
+  if (!rows.length) return { added: 0, skipped: 0 };
+  let head = rows[0], body = rows.slice(1);
+  if (head[0] !== 'レコード種別') { head = COLS; body = rows; }
+  const idx = {};
+  head.forEach((h, i) => { idx[h] = i; });
+  let added = 0, skipped = 0;
+  for (const raw of body) {
+    const r = COLS.map((c, i) => {
+      if (c in idx) return (raw[idx[c]] || '').trim();
+      return (raw[i] || '').trim();
+    });
+    if (!r[4] && !r[5]) { skipped++; continue; }
+    const csOk = await verifyChecksum(r);
+    const issues = validate(r);
+    if (csOk === 'mismatch') issues.unshift({ level: 'err', msg: 'チェックサムが一致しません。ファイルが破損または改変された可能性があります。' });
+    if (csOk === 'none') issues.push({ level: 'warn', msg: 'チェックサムが付与されていません。' });
+    records.push({ row: r, file: fileName, issues, csOk });
+    added++;
+  }
+  return { added, skipped };
+}
+
+function loadPrev(text) {
+  const rows = parseCSV(text);
+  if (!rows.length) return 0;
+  const head = rows[0], body = rows.slice(1);
+  const idx = {}; head.forEach((h, i) => { idx[h] = i; });
+  let n = 0;
+  for (const raw of body) {
+    const id = (idx['職員番号'] !== undefined ? raw[idx['職員番号']] : raw[4] || '').trim();
+    if (!id) continue;
+    prevMap.set(id, raw);
+    n++;
+  }
+  prevLoaded = true;
+  return n;
+}
+
+function lifeTotal(r) { return num(r[19]) + num(r[20]) + num(r[21]) + num(r[22]) + num(r[23]); }
+
+function render() {
+  const tb = $('mainTable').querySelector('tbody');
+  tb.innerHTML = '';
+  const errCount = records.filter(x => x.issues.some(i => i.level === 'err')).length;
+  const warnCount = records.filter(x => !x.issues.some(i => i.level === 'err') && x.issues.length).length;
+
+  const seen = new Map();
+  records.forEach(x => { const id = x.row[4]; seen.set(id, (seen.get(id) || 0) + 1); });
+
+  records.forEach(x => {
+    const r = x.row;
+    const hasErr = x.issues.some(i => i.level === 'err');
+    const dup = seen.get(r[4]) > 1;
+    const state = hasErr ? '<span class="tag err">要修正</span>'
+      : (x.issues.length || dup) ? '<span class="tag warn">要確認</span>'
+        : '<span class="tag ok">OK</span>';
+    const csTag = { ok: '<span class="tag ok">一致</span>', mismatch: '<span class="tag err">不一致</span>',
+      none: '<span class="tag warn">なし</span>', unknown: '<span class="tag warn">判定不能</span>' }[x.csOk];
+    const issues = (dup ? [{ level: 'err', msg: '同じ職員番号の提出が複数あります。' }] : []).concat(x.issues);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + state + '</td>' +
+      '<td>' + esc(r[4]) + '</td><td>' + esc(r[5]) + '</td><td>' + esc(r[6]) + '</td>' +
+      '<td>' + esc(r[7]) + '</td><td>' + esc(r[12]) + '</td><td>' + esc(r[15]) + '</td>' +
+      '<td style="text-align:right;">' + esc(r[16]) + '</td>' +
+      '<td style="text-align:right;">' + (lifeTotal(r) || '') + '</td>' +
+      '<td>' + esc(r[27]) + '</td>' +
+      '<td style="text-align:right;">' + esc(r[28]) + '</td>' +
+      '<td>' + csTag + '</td>' +
+      '<td style="max-width:340px;font-size:12px;">' +
+      (issues.map(i => '<span class="tag ' + i.level + '">' + (i.level === 'err' ? '誤' : '確') + '</span> ' + esc(i.msg)).join('<br>')
+        || '<span class="hint">指摘なし</span>') + '</td>';
+    tb.appendChild(tr);
+  });
+
+  $('stats').innerHTML = [
+    ['提出件数', records.length],
+    ['要修正', errCount],
+    ['要確認', warnCount],
+    ['未提出', roster.length ? roster.filter(p => !records.some(x => x.row[4] === p.id)).length : '—']
+  ].map(([k, v]) => '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>').join('');
+
+  renderMissing();
+  renderDiff();
+}
+
+function renderMissing() {
+  const tb = $('missingTable').querySelector('tbody');
+  if (!roster.length) { tb.innerHTML = '<tr><td colspan="3" class="hint">名簿を読み込むと表示されます。</td></tr>'; return; }
+  const missing = roster.filter(p => !records.some(x => x.row[4] === p.id));
+  tb.innerHTML = missing.length
+    ? missing.map(p => '<tr><td>' + esc(p.id) + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.dept) + '</td></tr>').join('')
+    : '<tr><td colspan="3" class="hint">全員から提出されています。</td></tr>';
+}
+
+function renderDiff() {
+  const tb = $('diffTable').querySelector('tbody');
+  if (!prevLoaded) { tb.innerHTML = '<tr><td colspan="6" class="hint">前年データを読み込むと表示されます。</td></tr>'; return; }
+  const out = [];
+  const push = (id, name, item, a, b, note) => out.push({ id, name, item, a, b, note });
+
+  records.forEach(x => {
+    const r = x.row, p = prevMap.get(r[4]);
+    if (!p) { push(r[4], r[5], '前年データ', '—', '—', '前年の提出が確認できません（新規採用・異動などの可能性）'); return; }
+    const g = (i) => (p[i] || '').trim();
+    if (g(7) !== r[7]) push(r[4], r[5], '配偶者の有無', g(7), r[7], '変更あり');
+    if (g(12) !== r[12]) push(r[4], r[5], '扶養親族数', g(12), r[12], '人数の変更あり');
+    if (g(27) !== r[27]) push(r[4], r[5], '住宅借入金等の有無', g(27), r[27], '変更あり');
+
+    const cmp = (label, a, b) => {
+      const x1 = num(a), x2 = num(b);
+      if (x1 === 0 && x2 === 0) return;
+      if (x1 === 0) { push(r[4], r[5], label, a || '0', b, '新規計上'); return; }
+      const ratio = x2 / x1;
+      if (ratio > 2 || ratio < 0.5) push(r[4], r[5], label, a, b, '前年の ' + ratio.toFixed(2) + ' 倍（桁を確認）');
+    };
+    cmp('合計所得金額見積額', g(16), r[16]);
+    cmp('生命保険料（合計）', String(num(g(19)) + num(g(20)) + num(g(21)) + num(g(22)) + num(g(23))), String(lifeTotal(r)));
+    cmp('住宅借入金等 年末残高', g(28), r[28]);
+  });
+
+  tb.innerHTML = out.length
+    ? out.map(o => '<tr><td>' + esc(o.id) + '</td><td>' + esc(o.name) + '</td><td>' + esc(o.item) + '</td>' +
+        '<td style="text-align:right;">' + esc(o.a) + '</td><td style="text-align:right;">' + esc(o.b) + '</td><td>' + esc(o.note) + '</td></tr>').join('')
+    : '<tr><td colspan="6" class="hint">前年との差分は検出されませんでした。</td></tr>';
+}
+
+function exportAgg() {
+  if (!records.length) return alert('先に提出データを読み込んでください。');
+  const csv = [COLS.map(csvCell).join(',')]
+    .concat(records.map(x => x.row.map(csvCell).join(',')))
+    .join('\r\n') + '\r\n';
+  download('nenmatsu_agg_' + FORM_YEAR + '.csv', csv);
+}
+
+function exportIssues() {
+  if (!records.length) return alert('先に提出データを読み込んでください。');
+  const rows = [['職員番号', '氏名', '所属', '種別', '内容'].map(csvCell).join(',')];
+  records.forEach(x => {
+    x.issues.forEach(i => rows.push([x.row[4], x.row[5], x.row[6], i.level === 'err' ? '要修正' : '要確認', i.msg].map(csvCell).join(',')));
+  });
+  if (rows.length === 1) return alert('指摘事項はありません。');
+  download('nenmatsu_issues_' + FORM_YEAR + '.csv', rows.join('\r\n') + '\r\n');
+}
+
+function printList() {
+  const w = window.open('', '_blank');
+  if (!w) return alert('ポップアップがブロックされました。');
+  const rows = records.map(x => '<tr><td>' + esc(x.row[4]) + '</td><td>' + esc(x.row[5]) + '</td><td>' + esc(x.row[6]) + '</td>' +
+    '<td>' + esc(x.row[7]) + '</td><td>' + esc(x.row[12]) + '</td><td style="text-align:right;">' + esc(x.row[16]) + '</td>' +
+    '<td>' + (x.issues.length ? esc(x.issues.map(i => i.msg).join(' / ')) : '指摘なし') + '</td></tr>').join('');
+  w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>年末調整 提出一覧（' + FORM_YEAR + '）</title>' +
+    '<style>body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;font-size:11px;}' +
+    'table{width:100%;border-collapse:collapse;} th,td{border:1px solid #333;padding:3px 4px;text-align:left;}' +
+    'th{background:#eee;} h1{font-size:15px;}</style></head><body>' +
+    '<h1>年末調整 提出一覧（' + FORM_YEAR + '）</h1>' +
+    '<p>出力日時：' + new Date().toLocaleString('ja-JP') + '　／　ツール版：' + TOOL_VERSION + '　／　提出件数：' + records.length + '件</p>' +
+    '<table><tr><th>職員番号</th><th>氏名</th><th>所属</th><th>配偶者</th><th>扶養</th><th>所得見積額</th><th>指摘事項</th></tr>' + rows + '</table>' +
+    '<p style="margin-top:12px;">※ 控除額・税額の計算は行っていません。控除額の判定および税額の計算は給与システムにより行います。</p>' +
+    '</body></html>');
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 300);
+}
+
+function buildRowFromDraft(d) {
+  const deps = (d.deps || []).filter(x => x.name);
+  const body = [
+    '申告', d.toolVersion || TOOL_VERSION, FORM_YEAR, d.savedAt || '',
+    d.staffId || '', d.name || '', d.dept || '',
+    d.hasSpouse || '', d.spName || '', d.spBirth || '', d.spIncome || '', d.spAddr || '',
+    String(deps.length), deps.map(x => [x.name, x.relation, x.birth, x.living, x.income, x.addr].join('|')).join(';'),
+    d.changeNote || '', d.hasUnder23 || '',
+    d.totalIncome || '', d.spouseDeduction || '', d.incomeAdj || '',
+    d.lifeNewGeneral || '', d.lifeNewMedical || '', d.lifeNewPension || '',
+    d.lifeOldGeneral || '', d.lifeOldPension || '', d.earthquake || '', d.socialIns || '', d.smallMutual || '',
+    d.housing || '', d.housingBalance || '', d.housingJoint || '',
+    d.declare ? '確認済' : '', d.remarks || ''
+  ];
+  return [...body, '', ''];
+}
+
+$('files').addEventListener('change', async (e) => {
+  const list = [...e.target.files];
+  let added = 0, skipped = 0;
+  for (const f of list) {
+    const text = await f.text();
+    if (f.name.toLowerCase().endsWith('.json')) {
+      try {
+        const obj = JSON.parse(text);
+        const d = obj.data || obj;
+        const rows = [COLS.map(csvCell).join(',')];
+        rows.push(buildRowFromDraft(d).map(csvCell).join(','));
+        const res = await addFromText(rows.join('\r\n'), f.name);
+        added += res.added;
+      } catch (err) { skipped++; }
+    } else {
+      const res = await addFromText(text, f.name);
+      added += res.added; skipped += res.skipped;
+    }
+  }
+  $('loadMsg').className = 'msg show ok';
+  $('loadMsg').innerHTML = '<strong>取り込み完了</strong><ul><li>取り込み：' + added + ' 件</li>' +
+    (skipped ? '<li>読み飛ばし：' + skipped + ' 件</li>' : '') + '</ul>';
+  render();
+  e.target.value = '';
+});
+
+$('roster').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const rows = parseCSV(await f.text());
+  const head = rows[0] || [];
+  const idx = {}; head.forEach((h, i) => { idx[h.trim()] = i; });
+  const gi = (r, names, fallback) => {
+    for (const n of names) if (idx[n] !== undefined) return (r[idx[n]] || '').trim();
+    return (r[fallback] || '').trim();
+  };
+  roster = rows.slice(1).map(r => ({
+    id: gi(r, ['職員番号', '職員ｺｰﾄﾞ', 'ID'], 0),
+    name: gi(r, ['氏名', '職員氏名'], 1),
+    dept: gi(r, ['所属', '所属名'], 2)
+  })).filter(p => p.id);
+  $('rosterMsg').className = 'msg show ok';
+  $('rosterMsg').innerHTML = '<strong>名簿を読み込みました</strong><ul><li>' + roster.length + ' 名</li></ul>';
+  render();
+  e.target.value = '';
+});
+
+$('prev').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const n = loadPrev(await f.text());
+  $('prevMsg').className = 'msg show ok';
+  $('prevMsg').innerHTML = '<strong>前年データを読み込みました</strong><ul><li>' + n + ' 件</li></ul>';
+  render();
+  e.target.value = '';
+});
+
+$('btnClearAll').addEventListener('click', () => {
+  records = []; roster = []; prevMap = new Map(); prevLoaded = false;
+  ['loadMsg', 'rosterMsg', 'prevMsg'].forEach(id => { $(id).className = 'msg'; });
+  render();
+});
+
+$('btnExportAgg').addEventListener('click', exportAgg);
+$('btnExportIssues').addEventListener('click', exportIssues);
+$('btnPrintList').addEventListener('click', printList);
+
+render();
+</script>
+</body>
+</html>
