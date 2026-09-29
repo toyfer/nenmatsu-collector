@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>年末調整 申告データ入力（職員用）</title>
+<style>
+:root {
+  --line: #d4d8dd; --ink: #1f2933; --muted: #66727f; --bg: #f6f7f9; --accent: #1d4ed8;
+  --warn-bg: #fff7ed; --warn-line: #fdba74; --err-bg: #fef2f2; --err-line: #fca5a5;
+  --ok-bg: #f0fdf4; --ok-line: #86efac;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  color: var(--ink); background: var(--bg); font-size: 15px; line-height: 1.7; }
+header { background: #fff; border-bottom: 2px solid var(--ink); padding: 14px 20px; }
+header h1 { margin: 0 0 4px; font-size: 19px; }
+header .sub { color: var(--muted); font-size: 13px; }
+main { max-width: 980px; margin: 0 auto; padding: 20px; }
+section { background: #fff; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 18px; padding: 16px 18px; }
+section > h2 { font-size: 16px; margin: 0 0 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+section > .note { color: var(--muted); font-size: 13px; margin: 8px 0 14px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > label { font-size: 13px; color: var(--muted); }
+.field .req::after { content: "必須"; color: #fff; background: #dc2626; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
+input[type="text"], input[type="number"], input[type="date"], select, textarea {
+  font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink); width: 100%; }
+input:focus, select:focus, textarea:focus { outline: 2px solid #bfdbfe; border-color: var(--accent); }
+input.bad, select.bad { border-color: #dc2626; background: var(--err-bg); }
+.radios { display: flex; gap: 16px; align-items: center; padding-top: 4px; }
+.radios label { display: inline-flex; gap: 5px; align-items: center; font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { border: 1px solid var(--line); padding: 5px 6px; text-align: left; vertical-align: middle; }
+th { background: #f1f3f5; font-weight: 600; white-space: nowrap; }
+td input, td select { padding: 4px 6px; font-size: 13px; }
+button { font: inherit; padding: 8px 16px; border-radius: 4px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+button:hover { background: #f1f3f5; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #1e40af; }
+button.danger { color: #b91c1c; border-color: #fca5a5; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; }
+.actions .spacer { flex: 1; }
+.banner { border-left: 5px solid var(--warn-line); background: var(--warn-bg); padding: 12px 16px; border-radius: 4px; margin-bottom: 18px; font-size: 14px; }
+.banner strong { display: block; margin-bottom: 4px; }
+.msg { border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-top: 10px; display: none; }
+.msg.show { display: block; }
+.msg.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+.msg.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+.msg.err { background: var(--err-bg); border: 1px solid var(--err-line); }
+.msg ul { margin: 6px 0 0; padding-left: 20px; }
+.hint { font-size: 12px; color: var(--muted); }
+.meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.meta code { background: #f1f3f5; padding: 1px 5px; border-radius: 3px; }
+.scroll { overflow-x: auto; }
+#printArea { display: none; }
+@media print {
+  body { background: #fff; }
+  header, main > section, .banner, .actions { display: none !important; }
+  #printArea { display: block; padding: 10mm; }
+  #printArea table { font-size: 11px; }
+  #printArea h1 { font-size: 16px; }
+  .sign { display: flex; gap: 30px; margin-top: 20px; }
+  .sign div { border: 1px solid #000; width: 200px; height: 70px; padding: 6px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>年末調整 申告データ入力（職員用）</h1>
+  <div class="sub">様式年度：令和8年分 ／ ツール版：v1.1.0 ／ 1ファイル完結・インストール不要・通信不要</div>
+</header>
+
+<main>
+
+  <div class="banner">
+    <strong>このツールは控除額・税額を計算しません</strong>
+    入力した内容をデータとして集約し、人事が確認するための一次資料を作るツールです。控除額の判定と税額の計算は、従来どおり給与システム側で行います。最終的な申告内容の確定は、人事の確認を経て行われます。
+  </div>
+
+  <section>
+    <h2>基本情報</h2>
+    <div class="grid three">
+      <div class="field"><label class="req" for="staffId">職員番号</label><input type="text" id="staffId" inputmode="numeric" placeholder="例：0123456"></div>
+      <div class="field"><label class="req" for="name">氏名</label><input type="text" id="name" placeholder="例：山田 太郎"></div>
+      <div class="field"><label class="req" for="dept">所属</label><input type="text" id="dept" placeholder="例：総務課"></div>
+    </div>
+    <div class="meta">下書きは「下書きを保存」でファイルに残せます。翌年はそのファイルを「下書きを読込」で読み込むと、変更点だけ直せます。</div>
+  </section>
+
+  <section>
+    <h2>1. 扶養控除等（異動）申告書</h2>
+    <p class="note">配偶者・扶養親族の状況を入力します。所得の見積額は「合計所得金額」の見積額を入力してください。</p>
+    <div class="grid">
+      <div class="field">
+        <label class="req">配偶者の有無</label>
+        <div class="radios" id="hasSpouse">
+          <label><input type="radio" name="hasSpouse" value="有"> 有</label>
+          <label><input type="radio" name="hasSpouse" value="無"> 無</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="req">年齢23歳未満の扶養親族の有無</label>
+        <div class="radios" id="hasUnder23">
+          <label><input type="radio" name="hasUnder23" value="有"> 有</label>
+          <label><input type="radio" name="hasUnder23" value="無"> 無</label>
+        </div>
+        <span class="hint">令和8年分で追加された記載欄です。</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px;margin:18px 0 8px;">源泉控除対象配偶者</h3>
+    <div class="grid">
+      <div class="field"><label for="spName">氏名</label><input type="text" id="spName"></div>
+      <div class="field"><label for="spBirth">生年月日</label><input type="date" id="spBirth"></div>
+      <div class="field"><label for="spIncome">所得の見積額（円）</label><input type="number" id="spIncome" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="spAddr">住所</label><input type="text" id="spAddr"></div>
+    </div>
+    <p class="hint">配偶者がいても、所得要件を満たさない場合は記載不要です。空欄のままでも構いません。</p>
+
+    <h3 style="font-size:14px;margin:22px 0 8px;">源泉控除対象親族（扶養親族）</h3>
+    <div class="scroll">
+      <table id="depTable">
+        <thead>
+          <tr>
+            <th style="width:34px;">No</th><th style="min-width:130px;">氏名</th><th style="min-width:110px;">続柄</th>
+            <th style="min-width:140px;">生年月日</th><th style="min-width:80px;">同居区分</th>
+            <th style="min-width:110px;">所得の見積額</th><th style="min-width:160px;">住所</th><th style="width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody id="depBody"></tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button type="button" id="addDep">行を追加</button>
+      <span class="hint">該当者がいない場合は空のままにしてください。</span>
+    </div>
+
+    <h3 style="font-size:14px;margin:22px 0 8px;">異動月日及び事由</h3>
+    <div class="field">
+      <input type="text" id="changeNote" placeholder="例：令和8年12月1日 改正（所得要件の緩和により新たに対象）">
+    </div>
+    <p class="hint">今年から新たに対象になった親族がいる場合は、この欄への記載が必要です。</p>
+  </section>
+
+  <section>
+    <h2>2. 基礎控除申告書</h2>
+    <div class="grid">
+      <div class="field">
+        <label class="req" for="totalIncome">あなたの合計所得金額の見積額（円）</label>
+        <input type="number" id="totalIncome" min="0" step="1" inputmode="numeric" placeholder="0">
+        <span class="hint">給与収入のみの場合、給与所得控除後の金額です。判断に迷う場合は給与システムの表示額をそのまま入れてください。</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 配偶者控除等申告書／所得金額調整控除申告書</h2>
+    <div class="grid">
+      <div class="field">
+        <label class="req">配偶者控除等申告書の提出</label>
+        <div class="radios" id="spouseDeduction">
+          <label><input type="radio" name="spouseDeduction" value="提出する"> 提出する</label>
+          <label><input type="radio" name="spouseDeduction" value="提出しない"> 提出しない</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="req">所得金額調整控除申告書の提出</label>
+        <div class="radios" id="incomeAdj">
+          <label><input type="radio" name="incomeAdj" value="提出する"> 提出する</label>
+          <label><input type="radio" name="incomeAdj" value="提出しない"> 提出しない</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 保険料控除申告書</h2>
+    <p class="note">控除証明書に記載された年間の払込保険料の金額を、そのまま入力してください（控除額は計算しません）。</p>
+    <div class="grid three">
+      <div class="field"><label for="lifeNewGeneral">生命保険料（新制度）一般</label><input type="number" id="lifeNewGeneral" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="lifeNewMedical">生命保険料（新制度）介護医療</label><input type="number" id="lifeNewMedical" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="lifeNewPension">生命保険料（新制度）個人年金</label><input type="number" id="lifeNewPension" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="lifeOldGeneral">生命保険料（旧制度）一般</label><input type="number" id="lifeOldGeneral" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="lifeOldPension">生命保険料（旧制度）個人年金</label><input type="number" id="lifeOldPension" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="earthquake">地震保険料</label><input type="number" id="earthquake" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="socialIns">社会保険料（給与から控除された額を除く）</label><input type="number" id="socialIns" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field"><label for="smallMutual">小規模企業共済等掛金</label><input type="number" id="smallMutual" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 住宅借入金等特別控除</h2>
+    <div class="grid">
+      <div class="field">
+        <label class="req">該当の有無</label>
+        <div class="radios" id="housing">
+          <label><input type="radio" name="housing" value="有"> 有</label>
+          <label><input type="radio" name="housing" value="無"> 無</label>
+        </div>
+      </div>
+      <div class="field"><label for="housingBalance">年末残高（円）</label><input type="number" id="housingBalance" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="field">
+        <label>連帯債務の有無</label>
+        <div class="radios" id="housingJoint">
+          <label><input type="radio" name="housingJoint" value="有"> 有</label>
+          <label><input type="radio" name="housingJoint" value="無"> 無</label>
+        </div>
+      </div>
+    </div>
+    <p class="hint">初回・2年目以降で提出書類が異なります。金融機関・税務署から届いた書類に従ってください。</p>
+  </section>
+
+  <section>
+    <h2>6. 確認と出力</h2>
+    <div class="field">
+      <label for="remarks">備考（人事への連絡事項があれば）</label>
+      <textarea id="remarks" rows="3"></textarea>
+    </div>
+    <div class="actions" style="margin-top:14px;">
+      <label style="display:inline-flex;gap:6px;align-items:center;font-size:14px;">
+        <input type="checkbox" id="declare"> 申告内容は事実に相違ありません。
+      </label>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="actions" style="margin-top:16px;">
+      <button type="button" class="primary" id="btnValidate">入力チェック</button>
+      <button type="button" class="primary" id="btnExport">提出用CSVを出力</button>
+      <button type="button" id="btnPrint">確認書を印刷</button>
+      <span class="spacer"></span>
+      <button type="button" id="btnSaveDraft">下書きを保存</button>
+      <button type="button" id="btnLoadDraft">下書きを読込</button>
+      <button type="button" class="danger" id="btnClear">入力を消す</button>
+      <input type="file" id="fileDraft" accept=".json,application/json" style="display:none;">
+    </div>
+    <div class="meta" id="outMeta"></div>
+  </section>
+
+  <section>
+    <h2>このツールが行わないこと</h2>
+    <ul style="margin:0;padding-left:20px;font-size:14px;">
+      <li>控除額・税額の計算（給与システム側で行います）</li>
+      <li>マイナポータル連携による控除証明書データの取得</li>
+      <li>法定調書・源泉徴収票の作成</li>
+      <li>申告内容の確定（人事の確認を経て確定します）</li>
+    </ul>
+  </section>
+
+</main>
+
+<div id="printArea"></div>
+
+<script>
+const TOOL_VERSION = 'v1.1.0';
+const FORM_YEAR = '令和8年分';
+
+const COLS = [
+  'レコード種別', 'ツール版', '様式年度', '提出日時',
+  '職員番号', '氏名', '所属',
+  '配偶者有無', '源泉控除対象配偶者_氏名', '源泉控除対象配偶者_生年月日',
+  '源泉控除対象配偶者_所得見積額', '源泉控除対象配偶者_住所',
+  '扶養親族数', '扶養親族明細', '異動月日事由', '23歳未満扶養親族有無',
+  '合計所得金額見積額', '配偶者控除等申告書', '所得金額調整控除申告書',
+  '生命保険料_新_一般', '生命保険料_新_介護医療', '生命保険料_新_個人年金',
+  '生命保険料_旧_一般', '生命保険料_旧_個人年金', '地震保険料',
+  '社会保険料', '小規模企業共済等掛金',
+  '住宅借入金等_有無', '住宅借入金等_年末残高', '住宅借入金等_連帯債務',
+  '本人確認', '備考', 'チェックサム方式', 'チェックサム'
+];
+
+const $ = (id) => document.getElementById(id);
+const val = (id) => ($(id) ? $(id).value.trim() : '');
+const radio = (name) => {
+  const el = document.querySelector('input[name="' + name + '"]:checked');
+  return el ? el.value : '';
+};
+const DRAFT_KEY = 'nenmatsu_draft_v1';
+
+const RELATIONS = ['配偶者', '子', '父', '母', '兄', '弟', '姉', '妹', '祖父', '祖母', '孫', 'その他'];
+const LIVING = ['同居', '別居'];
+
+function addDepRow(data) {
+  const tbody = $('depBody');
+  if (tbody.rows.length >= 10) { showMsg('warn', ['扶養親族の行は10行までです。']); return; }
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td class="no"></td>' +
+    '<td><input type="text" data-f="name"></td>' +
+    '<td><select data-f="relation"><option value=""></option>' + RELATIONS.map(r => '<option>' + r + '</option>').join('') + '</select></td>' +
+    '<td><input type="date" data-f="birth"></td>' +
+    '<td><select data-f="living"><option value=""></option>' + LIVING.map(r => '<option>' + r + '</option>').join('') + '</select></td>' +
+    '<td><input type="number" min="0" step="1" inputmode="numeric" data-f="income" placeholder="0"></td>' +
+    '<td><input type="text" data-f="addr"></td>' +
+    '<td style="text-align:center;"><button type="button" class="del danger" title="削除">×</button></td>';
+  tbody.appendChild(tr);
+  tr.querySelector('.del').addEventListener('click', () => { tr.remove(); renumber(); autosave(); });
+  tr.querySelectorAll('input,select').forEach(el => el.addEventListener('input', autosave));
+  if (data) {
+    tr.querySelector('[data-f="name"]').value = data.name || '';
+    tr.querySelector('[data-f="relation"]').value = data.relation || '';
+    tr.querySelector('[data-f="birth"]').value = data.birth || '';
+    tr.querySelector('[data-f="living"]').value = data.living || '';
+    tr.querySelector('[data-f="income"]').value = data.income || '';
+    tr.querySelector('[data-f="addr"]').value = data.addr || '';
+  }
+  renumber();
+}
+
+function renumber() {
+  [...$('depBody').rows].forEach((tr, i) => { tr.querySelector('.no').textContent = String(i + 1); });
+}
+
+function readDeps() {
+  return [...$('depBody').rows].map(tr => ({
+    name: tr.querySelector('[data-f="name"]').value.trim(),
+    relation: tr.querySelector('[data-f="relation"]').value,
+    birth: tr.querySelector('[data-f="birth"]').value,
+    living: tr.querySelector('[data-f="living"]').value,
+    income: tr.querySelector('[data-f="income"]').value.trim(),
+    addr: tr.querySelector('[data-f="addr"]').value.trim()
+  }));
+}
+
+function collect() {
+  const deps = readDeps().filter(d => d.name || d.relation || d.birth || d.living || d.income || d.addr);
+  return {
+    staffId: val('staffId'), name: val('name'), dept: val('dept'),
+    hasSpouse: radio('hasSpouse'),
+    spName: val('spName'), spBirth: val('spBirth'), spIncome: val('spIncome'), spAddr: val('spAddr'),
+    deps, changeNote: val('changeNote'),
+    hasUnder23: radio('hasUnder23'),
+    totalIncome: val('totalIncome'),
+    spouseDeduction: radio('spouseDeduction'),
+    incomeAdj: radio('incomeAdj'),
+    lifeNewGeneral: val('lifeNewGeneral'), lifeNewMedical: val('lifeNewMedical'), lifeNewPension: val('lifeNewPension'),
+    lifeOldGeneral: val('lifeOldGeneral'), lifeOldPension: val('lifeOldPension'),
+    earthquake: val('earthquake'), socialIns: val('socialIns'), smallMutual: val('smallMutual'),
+    housing: radio('housing'), housingBalance: val('housingBalance'), housingJoint: radio('housingJoint'),
+    declare: $('declare').checked, remarks: val('remarks')
+  };
+}
+
+const ZEN = /[０-９．，]/;
+const dateOk = (s) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + 'T00:00:00');
+  if (isNaN(d.getTime())) return false;
+  return d >= new Date('1900-01-01') && d <= new Date();
+};
+
+function validate(d, forExport) {
+  const errs = [], warns = [];
+  if (!d.staffId) errs.push('職員番号が未入力です。');
+  else if (!/^[0-9]+$/.test(d.staffId)) errs.push('職員番号は半角数字で入力してください。');
+  if (!d.name) errs.push('氏名が未入力です。');
+  if (!d.dept) errs.push('所属が未入力です。');
+  if (!d.hasSpouse) errs.push('配偶者の有無が未選択です。');
+  if (!d.hasUnder23) errs.push('年齢23歳未満の扶養親族の有無が未選択です。');
+  if (!d.totalIncome) errs.push('合計所得金額の見積額が未入力です。');
+  if (!d.spouseDeduction) errs.push('配偶者控除等申告書の提出区分が未選択です。');
+  if (!d.incomeAdj) errs.push('所得金額調整控除申告書の提出区分が未選択です。');
+  if (!d.housing) errs.push('住宅借入金等特別控除の有無が未選択です。');
+
+  if (d.hasSpouse === '無' && (d.spName || d.spBirth || d.spIncome || d.spAddr)) {
+    errs.push('配偶者「無」なのに源泉控除対象配偶者の欄が入力されています。');
+  }
+  if (d.hasSpouse === '有') {
+    if (!d.spName) warns.push('配偶者「有」ですが、源泉控除対象配偶者の氏名が空です。所得要件を満たさない場合は記載不要です。');
+    if (!d.spIncome) warns.push('源泉控除対象配偶者の所得の見積額が空です。');
+    if (d.spBirth && !dateOk(d.spBirth)) errs.push('源泉控除対象配偶者の生年月日が正しくありません。');
+  }
+
+  d.deps.forEach((dep, i) => {
+    const n = i + 1;
+    const filled = [dep.name, dep.relation, dep.birth, dep.living, dep.income, dep.addr].filter(Boolean).length;
+    if (filled > 0 && filled < 6) errs.push('扶養親族 ' + n + ' 行目：入力が一部だけです。氏名・続柄・生年月日・同居区分・所得の見積額・住所をすべて入力してください。');
+    if (dep.name && !dep.relation) errs.push('扶養親族 ' + n + ' 行目：続柄が未選択です。');
+    if (dep.name && !dep.living) errs.push('扶養親族 ' + n + ' 行目：同居区分が未選択です。');
+    if (dep.name && dep.birth && !dateOk(dep.birth)) errs.push('扶養親族 ' + n + ' 行目：生年月日が正しくありません。');
+    if (dep.name && dep.income === '') errs.push('扶養親族 ' + n + ' 行目：所得の見積額が未入力です。');
+    if (dep.income !== '' && !/^[0-9]+$/.test(dep.income)) errs.push('扶養親族 ' + n + ' 行目：所得の見積額は半角数字で入力してください。');
+  });
+
+  if (d.hasUnder23 === '有' && d.deps.filter(x => x.name).length === 0) {
+    warns.push('「年齢23歳未満の扶養親族：有」ですが、扶養親族の記載がありません。');
+  }
+  if (d.housing === '有' && (!d.housingBalance || d.housingBalance === '0')) {
+    errs.push('住宅借入金等特別控除「有」ですが、年末残高が未入力または0です。');
+  }
+  if (d.housing === '無' && d.housingBalance && d.housingBalance !== '0') {
+    errs.push('住宅借入金等特別控除「無」なのに年末残高が入力されています。');
+  }
+
+  const numFields = ['totalIncome', 'spIncome', 'lifeNewGeneral', 'lifeNewMedical', 'lifeNewPension',
+    'lifeOldGeneral', 'lifeOldPension', 'earthquake', 'socialIns', 'smallMutual', 'housingBalance'];
+  numFields.forEach(k => {
+    const v = d[k];
+    if (v === '') return;
+    if (!/^[0-9]+$/.test(v)) errs.push(k + ' は半角数字（0以上の整数）で入力してください。');
+    else if (Number(v) > 999999999) warns.push(k + ' の値が10億円を超えています。桁を確認してください。');
+  });
+
+  ['staffId', 'name', 'dept', 'spName', 'spAddr', 'changeNote', 'remarks'].forEach(k => {
+    if (ZEN.test(d[k])) errs.push(k + ' に全角の数字が含まれています。半角に直してください。');
+  });
+
+  if (forExport && !d.declare) errs.push('「申告内容は事実に相違ありません。」にチェックを入れてください。');
+  return { errs, warns };
+}
+
+function showMsg(level, lines, extra) {
+  const el = $('msg');
+  el.className = 'msg show ' + level;
+  const head = { ok: '問題ありません。', warn: '確認してください。', err: '入力に誤りがあります。' }[level];
+  el.innerHTML = '<strong>' + head + '</strong>' + (extra ? ' ' + extra : '') +
+    '<ul>' + lines.map(l => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fnv1a32(str) {
+  const bytes = new TextEncoder().encode(str);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+async function checksum(str) {
+  if (window.crypto && window.crypto.subtle) {
+    try {
+      const buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return { method: 'SHA-256', hex: [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('') };
+    } catch (e) { /* フォールバックへ */ }
+  }
+  return { method: 'FNV1a-32', hex: fnv1a32(str) };
+}
+
+function csvCell(v) {
+  const s = v === undefined || v === null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function nowStamp() {
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+    p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+function depToStr(deps) {
+  return deps.map(x => [x.name, x.relation, x.birth, x.living, x.income, x.addr].join('|')).join(';');
+}
+
+async function buildRow(d) {
+  const stamp = nowStamp();
+  const deps = d.deps.filter(x => x.name);
+  const body = [
+    '申告', TOOL_VERSION, FORM_YEAR, stamp,
+    d.staffId, d.name, d.dept,
+    d.hasSpouse, d.spName, d.spBirth, d.spIncome, d.spAddr,
+    String(deps.length), depToStr(deps), d.changeNote, d.hasUnder23,
+    d.totalIncome, d.spouseDeduction, d.incomeAdj,
+    d.lifeNewGeneral, d.lifeNewMedical, d.lifeNewPension,
+    d.lifeOldGeneral, d.lifeOldPension, d.earthquake, d.socialIns, d.smallMutual,
+    d.housing, d.housingBalance, d.housingJoint,
+    d.declare ? '確認済' : '', d.remarks
+  ];
+  const cs = await checksum(body.join('\u001f'));
+  return [...body, cs.method, cs.hex];
+}
+
+function download(filename, text) {
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadJson(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function snapshot() { return collect(); }
+
+function restore(d) {
+  if (!d) return;
+  $('staffId').value = d.staffId || '';
+  $('name').value = d.name || '';
+  $('dept').value = d.dept || '';
+  const setRadio = (name, v) => {
+    document.querySelectorAll('input[name="' + name + '"]').forEach(el => { el.checked = (el.value === v); });
+  };
+  setRadio('hasSpouse', d.hasSpouse);
+  setRadio('hasUnder23', d.hasUnder23);
+  setRadio('spouseDeduction', d.spouseDeduction);
+  setRadio('incomeAdj', d.incomeAdj);
+  setRadio('housing', d.housing);
+  setRadio('housingJoint', d.housingJoint);
+  ['spName', 'spBirth', 'spIncome', 'spAddr', 'changeNote', 'totalIncome',
+    'lifeNewGeneral', 'lifeNewMedical', 'lifeNewPension', 'lifeOldGeneral', 'lifeOldPension',
+    'earthquake', 'socialIns', 'smallMutual', 'housingBalance', 'remarks'].forEach(k => {
+      if ($(k)) $(k).value = d[k] || '';
+    });
+  $('declare').checked = !!d.declare;
+  $('depBody').innerHTML = '';
+  (d.deps || []).forEach(addDepRow);
+  if (!(d.deps || []).length) addDepRow();
+}
+
+function autosave() {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot())); } catch (e) { /* file:// では不可のことがある */ }
+}
+
+function buildPrint(d) {
+  const deps = d.deps.filter(x => x.name);
+  const rows = deps.length
+    ? deps.map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(x.name) + '</td><td>' + escapeHtml(x.relation) +
+      '</td><td>' + escapeHtml(x.birth) + '</td><td>' + escapeHtml(x.living) + '</td><td style="text-align:right;">' + escapeHtml(x.income) + '</td></tr>').join('')
+    : '<tr><td colspan="6">（記載なし）</td></tr>';
+  return '<h1>年末調整 申告内容確認書（' + FORM_YEAR + '）</h1>' +
+    '<p>下記のとおり申告します。記載内容を確認のうえ、自署・押印してください。</p>' +
+    '<table>' +
+    '<tr><th>職員番号</th><td>' + escapeHtml(d.staffId) + '</td><th>氏名</th><td>' + escapeHtml(d.name) + '</td></tr>' +
+    '<tr><th>所属</th><td colspan="3">' + escapeHtml(d.dept) + '</td></tr>' +
+    '<tr><th>配偶者の有無</th><td>' + escapeHtml(d.hasSpouse) + '</td><th>23歳未満の扶養親族</th><td>' + escapeHtml(d.hasUnder23) + '</td></tr>' +
+    '<tr><th>源泉控除対象配偶者</th><td colspan="3">' + escapeHtml(d.spName) + ' ' + escapeHtml(d.spBirth) + ' 所得見積 ' + escapeHtml(d.spIncome) + '円</td></tr>' +
+    '<tr><th>合計所得金額見積額</th><td>' + escapeHtml(d.totalIncome) + '円</td><th>扶養親族数</th><td>' + deps.length + '人</td></tr>' +
+    '<tr><th>異動月日及び事由</th><td colspan="3">' + escapeHtml(d.changeNote) + '</td></tr>' +
+    '</table>' +
+    '<p style="margin-top:10px;">扶養親族</p>' +
+    '<table><tr><th>No</th><th>氏名</th><th>続柄</th><th>生年月日</th><th>同居区分</th><th>所得見積額</th></tr>' + rows + '</table>' +
+    '<p style="margin-top:10px;">保険料控除（払込額）</p>' +
+    '<table>' +
+    '<tr><th>生命保険料（新）一般</th><td style="text-align:right;">' + escapeHtml(d.lifeNewGeneral) + '</td>' +
+    '<th>介護医療</th><td style="text-align:right;">' + escapeHtml(d.lifeNewMedical) + '</td>' +
+    '<th>個人年金</th><td style="text-align:right;">' + escapeHtml(d.lifeNewPension) + '</td></tr>' +
+    '<tr><th>生命保険料（旧）一般</th><td style="text-align:right;">' + escapeHtml(d.lifeOldGeneral) + '</td>' +
+    '<th>個人年金</th><td style="text-align:right;">' + escapeHtml(d.lifeOldPension) + '</td>' +
+    '<th>地震保険料</th><td style="text-align:right;">' + escapeHtml(d.earthquake) + '</td></tr>' +
+    '<tr><th>社会保険料</th><td style="text-align:right;">' + escapeHtml(d.socialIns) + '</td>' +
+    '<th>小規模企業共済等掛金</th><td colspan="3" style="text-align:right;">' + escapeHtml(d.smallMutual) + '</td></tr>' +
+    '</table>' +
+    '<p style="margin-top:10px;">住宅借入金等特別控除：' + escapeHtml(d.housing) + '　年末残高 ' + escapeHtml(d.housingBalance) + '円　連帯債務 ' + escapeHtml(d.housingJoint) + '</p>' +
+    '<p>備考：' + escapeHtml(d.remarks) + '</p>' +
+    '<div class="sign">' +
+    '<div>確認日　　年　　月　　日</div><div>所属長　　　　　　　　印</div><div>本人自署　　　　　　　印</div>' +
+    '</div>' +
+    '<p style="margin-top:14px;font-size:10px;">出力日時：' + nowStamp() + '　／　ツール版：' + TOOL_VERSION +
+    '　／　本確認書は控除額・税額を確定するものではありません。控除額の判定および税額の計算は給与システムにより行います。</p>';
+}
+
+$('addDep').addEventListener('click', () => { addDepRow(); autosave(); });
+
+$('btnValidate').addEventListener('click', () => {
+  const { errs, warns } = validate(collect(), false);
+  if (errs.length) showMsg('err', [...errs, ...warns]);
+  else if (warns.length) showMsg('warn', warns);
+  else showMsg('ok', ['すべての必須項目が入力されています。提出用CSVを出力できます。']);
+});
+
+$('btnExport').addEventListener('click', async () => {
+  const d = collect();
+  const { errs, warns } = validate(d, true);
+  if (errs.length) { showMsg('err', [...errs, ...warns]); return; }
+  const row = await buildRow(d);
+  const csv = [COLS.map(csvCell).join(','), row.map(csvCell).join(',')].join('\r\n') + '\r\n';
+  const fn = 'nenmatsu_' + FORM_YEAR + '_' + d.staffId + '_' + d.name + '.csv';
+  download(fn, csv);
+  $('outMeta').innerHTML = '出力しました：<code>' + escapeHtml(fn) + '</code>　チェックサム方式 <code>' +
+    escapeHtml(row[row.length - 2]) + '</code>　値 <code>' + escapeHtml(row[row.length - 1]) + '</code><br>' +
+    'このファイルを人事（給与担当）へ提出してください。受領後に改変されていないことは、人事側の取り込み時に自動照合されます。';
+  if (warns.length) showMsg('warn', warns, '（出力は行いました）');
+  else showMsg('ok', ['提出用CSVを出力しました。']);
+});
+
+$('btnPrint').addEventListener('click', () => {
+  const d = collect();
+  const { errs } = validate(d, false);
+  if (errs.length) { showMsg('err', errs, '（確認書を印刷する前に修正してください）'); return; }
+  $('printArea').innerHTML = buildPrint(d);
+  window.print();
+});
+
+$('btnSaveDraft').addEventListener('click', () => {
+  const d = collect();
+  downloadJson('nenmatsu_draft_' + (d.staffId || 'unknown') + '.json',
+    { toolVersion: TOOL_VERSION, formYear: FORM_YEAR, savedAt: nowStamp(), data: d });
+  showMsg('ok', ['下書きを保存しました。翌年はこのファイルを読み込んでください。']);
+});
+
+$('btnLoadDraft').addEventListener('click', () => $('fileDraft').click());
+
+$('fileDraft').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const obj = JSON.parse(r.result);
+      restore(obj.data || obj);
+      showMsg('ok', ['下書きを読み込みました。変更点だけ修正してください。']);
+    } catch (err) {
+      showMsg('err', ['下書きファイルを読み込めませんでした。']);
+    }
+    e.target.value = '';
+  };
+  r.readAsText(f, 'utf-8');
+});
+
+$('btnClear').addEventListener('click', () => {
+  if (!confirm('入力内容をすべて消します。よろしいですか？')) return;
+  restore({ deps: [] });
+  $('msg').className = 'msg';
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+});
+
+document.querySelectorAll('input,select,textarea').forEach(el => {
+  el.addEventListener('input', autosave);
+  el.addEventListener('change', autosave);
+});
+
+(function init() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) {}
+  if (saved) restore(saved);
+  else { addDepRow(); }
+})();
+</script>
+</body>
+</html>
