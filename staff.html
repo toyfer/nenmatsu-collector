@@ -101,14 +101,6 @@ button.danger { color: #b91c1c; border-color: #fca5a5; }
           <label><input type="radio" name="hasSpouse" value="無"> 無</label>
         </div>
       </div>
-      <div class="field">
-        <label class="req">年齢23歳未満の扶養親族の有無</label>
-        <div class="radios" id="hasUnder23">
-          <label><input type="radio" name="hasUnder23" value="有"> 有</label>
-          <label><input type="radio" name="hasUnder23" value="無"> 無</label>
-        </div>
-        <span class="hint">令和8年分で追加された記載欄です。</span>
-      </div>
     </div>
 
     <h3 style="font-size:14px;margin:18px 0 8px;">源泉控除対象配偶者</h3>
@@ -140,7 +132,7 @@ button.danger { color: #b91c1c; border-color: #fca5a5; }
 
     <h3 style="font-size:14px;margin:22px 0 8px;">異動月日及び事由</h3>
     <div class="field">
-      <input type="text" id="changeNote" placeholder="例：令和8年12月1日 改正（所得要件の緩和により新たに対象）">
+      <input type="text" id="changeNote" placeholder="例：令和8年6月20日 長男の就職により扶養から外れた">
     </div>
     <p class="hint">今年から新たに対象になった親族がいる場合は、この欄への記載が必要です。</p>
   </section>
@@ -179,6 +171,16 @@ button.danger { color: #b91c1c; border-color: #fca5a5; }
   <section>
     <h2>4. 保険料控除申告書</h2>
     <p class="note">控除証明書に記載された年間の払込保険料の金額を、そのまま入力してください（控除額は計算しません）。</p>
+    <div class="grid">
+      <div class="field">
+        <label class="req">年齢23歳未満の扶養親族の有無</label>
+        <div class="radios" id="hasUnder23">
+          <label><input type="radio" name="hasUnder23" value="有"> 有</label>
+          <label><input type="radio" name="hasUnder23" value="無"> 無</label>
+        </div>
+        <span class="hint">令和8年分の保険料控除申告書（一般の生命保険料）にある判定欄に対応します。扶養控除等（異動）申告書の欄ではありません。</span>
+      </div>
+    </div>
     <div class="grid three">
       <div class="field"><label for="lifeNewGeneral">生命保険料（新制度）一般</label><input type="number" id="lifeNewGeneral" min="0" step="1" inputmode="numeric" placeholder="0"></div>
       <div class="field"><label for="lifeNewMedical">生命保険料（新制度）介護医療</label><input type="number" id="lifeNewMedical" min="0" step="1" inputmode="numeric" placeholder="0"></div>
@@ -228,6 +230,8 @@ button.danger { color: #b91c1c; border-color: #fca5a5; }
     <div class="actions" style="margin-top:16px;">
       <button type="button" class="primary" id="btnValidate">入力チェック</button>
       <button type="button" class="primary" id="btnExport">提出用CSVを出力</button>
+      <button type="button" id="btnXml">提出用XMLを出力</button>
+      <button type="button" id="btnXmlDraft">XML構造ドラフト（非公式）</button>
       <button type="button" id="btnPrint">確認書を印刷</button>
       <span class="spacer"></span>
       <button type="button" id="btnSaveDraft">下書きを保存</button>
@@ -235,13 +239,14 @@ button.danger { color: #b91c1c; border-color: #fca5a5; }
       <button type="button" class="danger" id="btnClear">入力を消す</button>
       <input type="file" id="fileDraft" accept=".json,application/json" style="display:none;">
     </div>
+    <p class="hint" style="margin-top:8px;">XMLは、国税庁の「申告書XML定義書」に準拠していることを確認できた場合のみ出力します。突合が済むまでは、構造確認用の非公式ドラフトのみ出力できます。詳しくは README の「XMLの出力」を参照してください。</p>
     <div class="meta" id="outMeta"></div>
   </section>
 
   <section>
     <h2>このツールが行わないこと</h2>
     <ul style="margin:0;padding-left:20px;font-size:14px;">
-      <li>控除額・税額の計算（給与システム側で行います）</li>
+      <li>控除額・税額の計算と、控除の対象になるかどうかの判定（扶養控除・特定親族特別控除など。いずれも給与システム側で行います）</li>
       <li>マイナポータル連携による控除証明書データの取得</li>
       <li>法定調書・源泉徴収票の作成</li>
       <li>申告内容の確定（人事の確認を経て確定します）</li>
@@ -269,6 +274,91 @@ const COLS = [
   '住宅借入金等_有無', '住宅借入金等_年末残高', '住宅借入金等_連帯債務',
   '本人確認', '備考', 'チェックサム方式', 'チェックサム'
 ];
+
+/* ===== 年末調整申告書XMLデータ（国税庁の申告書XML定義書準拠） =====
+   一次情報:
+     ・控除申告書データに係る仕様公開
+       https://www.nta.go.jp/users/gensen/oshirase/0019004-159.htm
+     ・年末調整申告書XMLデータに係る仕様公開・FAQ
+       https://www.nta.go.jp/users/gensen/nenmatsu/nencho_05.htm
+   「申告書XML定義書【正式版】」の要素名をこのマッピングに書き写し、
+   verified を true にすると公式インポート用のXMLを出力できる。
+   true になるまで、公式用のXMLは出力しない。突合手順は README を参照。 */
+const XML_MAP = {
+  verified: false,
+  sourceUrl: 'https://www.nta.go.jp/users/gensen/oshirase/0019004-159.htm',
+  root: '',
+  rootAttributes: [],
+  fields: [
+    // 例: { path: '要素名', from: 'staffId' }
+  ],
+  dependents: { container: '', item: '', fields: [] }
+};
+
+function xmlEscape(s) {
+  return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+}
+
+function xmlValue(d, from) {
+  if (from === 'deps') return d.deps.filter(x => x.name);
+  return d[from];
+}
+
+function buildXml(d) {
+  if (!XML_MAP.verified) {
+    throw new Error('国税庁の「申告書XML定義書」との突合が未完了のため、公式インポート用のXMLは出力しません。');
+  }
+  const out = ['<?xml version="1.0" encoding="UTF-8"?>'];
+  const attrs = XML_MAP.rootAttributes.map(a => ' ' + a.name + '="' + xmlEscape(a.value) + '"').join('');
+  out.push('<' + XML_MAP.root + attrs + '>');
+  XML_MAP.fields.forEach(f => {
+    out.push('<' + f.path + '>' + xmlEscape(xmlValue(d, f.from)) + '</' + f.path + '>');
+  });
+  if (XML_MAP.dependents.item) {
+    out.push('<' + XML_MAP.dependents.container + '>');
+    xmlValue(d, 'deps').forEach(dep => {
+      out.push('<' + XML_MAP.dependents.item + '>');
+      XML_MAP.dependents.fields.forEach(f => {
+        out.push('<' + f.path + '>' + xmlEscape(dep[f.from]) + '</' + f.path + '>');
+      });
+      out.push('</' + XML_MAP.dependents.item + '>');
+    });
+    out.push('</' + XML_MAP.dependents.container + '>');
+  }
+  out.push('</' + XML_MAP.root + '>');
+  return out.join('\n') + '\n';
+}
+
+async function buildDraftXml(d) {
+  const row = (await buildRow(d)).slice(0, COLS.length - 2);
+  const out = [];
+  out.push('<?xml version="1.0" encoding="UTF-8"?>');
+  out.push('<!-- 非公式ドラフト。国税庁の「申告書XML定義書」に準拠していません。要素名の突合前の項目確認用です。 -->');
+  out.push('<DRAFT_NENMATSUCHOSEI year="' + xmlEscape(FORM_YEAR) + '" tool="' + xmlEscape(TOOL_VERSION) + '" generated="' + xmlEscape(nowStamp()) + '">');
+  row.forEach((v, i) => {
+    if (COLS[i] === '扶養親族明細') return;
+    out.push('  <DRAFT_FIELD name="' + xmlEscape(COLS[i]) + '">' + xmlEscape(v) + '</DRAFT_FIELD>');
+  });
+  d.deps.filter(x => x.name).forEach((dep, i) => {
+    out.push('  <DRAFT_FUYOSHINZOKU index="' + (i + 1) + '">');
+    [['氏名', dep.name], ['続柄', dep.relation], ['生年月日', dep.birth], ['同居区分', dep.living], ['所得見積額', dep.income], ['住所', dep.addr]].forEach(pair => {
+      out.push('    <DRAFT_FIELD name="' + xmlEscape(pair[0]) + '">' + xmlEscape(pair[1]) + '</DRAFT_FIELD>');
+    });
+    out.push('  </DRAFT_FUYOSHINZOKU>');
+  });
+  out.push('</DRAFT_NENMATSUCHOSEI>');
+  return out.join('\n') + '\n';
+}
+
+function downloadXml(filename, text) {
+  const blob = new Blob([text], { type: 'application/xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id) ? $(id).value.trim() : '');
@@ -444,7 +534,7 @@ async function checksum(str) {
 
 function csvCell(v) {
   const s = v === undefined || v === null ? '' : String(v);
-  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  return /[\",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
 function nowStamp() {
@@ -559,7 +649,7 @@ function buildPrint(d) {
     '<div>確認日　　年　　月　　日</div><div>所属長　　　　　　　　印</div><div>本人自署　　　　　　　印</div>' +
     '</div>' +
     '<p style="margin-top:14px;font-size:10px;">出力日時：' + nowStamp() + '　／　ツール版：' + TOOL_VERSION +
-    '　／　本確認書は控除額・税額を確定するものではありません。控除額の判定および税額の計算は給与システムにより行います。</p>';
+    '　／　本確認書は国税庁の法定様式ではなく、控除額・税額を確定するものでもありません。控除額の判定および税額の計算は給与システムにより行います。</p>';
 }
 
 $('addDep').addEventListener('click', () => { addDepRow(); autosave(); });
@@ -584,6 +674,34 @@ $('btnExport').addEventListener('click', async () => {
     'このファイルを人事（給与担当）へ提出してください。受領後に改変されていないことは、人事側の取り込み時に自動照合されます。';
   if (warns.length) showMsg('warn', warns, '（出力は行いました）');
   else showMsg('ok', ['提出用CSVを出力しました。']);
+});
+
+$('btnXml').addEventListener('click', () => {
+  if (!XML_MAP.verified) {
+    showMsg('warn', [
+      '国税庁の「申告書XML定義書」との突合が未完了のため、公式インポート用のXMLは出力していません。',
+      'staff.html の XML_MAP に定義書の要素名を書き写し、verified を true にすると出力できます。',
+      '突合手順は README の「XMLの出力」を参照してください。',
+      '参考: ' + XML_MAP.sourceUrl
+    ]);
+    return;
+  }
+  const d = collect();
+  const { errs, warns } = validate(d, true);
+  if (errs.length) { showMsg('err', [...errs, ...warns]); return; }
+  const fn = 'nenmatsu_' + FORM_YEAR + '_' + d.staffId + '_' + d.name + '.xml';
+  downloadXml(fn, buildXml(d));
+  $('outMeta').innerHTML = '出力しました：<code>' + escapeHtml(fn) + '</code><br>' +
+    'このファイルを人事（給与担当）へ提出してください。年調ソフトまたは給与システムへインポートして使います。';
+  if (warns.length) showMsg('warn', warns, '（出力は行いました）');
+  else showMsg('ok', ['提出用XMLを出力しました。']);
+});
+
+$('btnXmlDraft').addEventListener('click', async () => {
+  const d = collect();
+  const fn = 'nenmatsu_' + FORM_YEAR + '_' + d.staffId + '_' + d.name + '_draft_NOT_OFFICIAL.xml';
+  downloadXml(fn, await buildDraftXml(d));
+  showMsg('warn', ['非公式のドラフトを出力しました。国税庁の定義書に準拠していないため、給与システムへの提出用には使えません。要素名の突合に使ってください。']);
 });
 
 $('btnPrint').addEventListener('click', () => {

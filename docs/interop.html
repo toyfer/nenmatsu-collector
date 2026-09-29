@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>年末調整の他ソフト実装との対照</title>
+<style>
+:root{--line:#d4d8dd;--ink:#1f2933;--muted:#66727f;--bg:#f6f7f9;--accent:#1d4ed8;--warn-bg:#fff7ed;--warn-line:#fdba74;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.8;}
+header{background:#fff;border-bottom:2px solid var(--ink);padding:22px 20px;}
+header h1{margin:0 0 4px;font-size:22px;}
+header .sub{color:var(--muted);font-size:13px;}
+main{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin-bottom:18px;}
+section h2{font-size:17px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+p{margin:8px 0;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0;}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+th{background:#f1f3f5;}
+ul,ol{padding-left:24px;margin:8px 0;}
+li{margin:4px 0;font-size:14px;}
+a{color:var(--accent);}
+.back{font-size:13px;margin-bottom:14px;display:inline-block;}
+.banner{border-left:5px solid var(--warn-line);background:var(--warn-bg);padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:14px;}
+.banner strong{display:block;margin-bottom:4px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>公式仕様・他ソフト実装との対照</h1>
+  <div class="sub">自作ツールが準拠すべき公式仕様と、他のソフトがどう実装しているかの整理</div>
+</header>
+<main>
+  <a class="back" href="../index.html">← トップへ戻る</a>
+  <div class="banner"><strong>自ツールは現在、独自34列CSVが基準です</strong>給与システム側がそのCSVを読む機能を持たない限り、手作業が残ります。公式ルートは国税庁の「申告書XML定義書」に則ったXMLです。</div>
+  <section>
+    <h2>1. 公式仕様（実質的な標準実装）</h2>
+    <p>国税庁の年調ソフトはXMLを出力します。定義書は国税庁の仕様公開ページで更新されます。</p>
+    <ul>
+      <li><a href="https://www.nta.go.jp/users/gensen/nenmatsu/nencho_05.htm">年末調整申告書XMLデータに係る仕様公開・FAQ</a>：控除申告書データを給与システム等にインポートする仕組みの説明</li>
+      <li><a href="https://www.nta.go.jp/users/gensen/oshirase/0019004-159.htm">控除申告書データに係る仕様公開</a>：申告書XML定義書【正式版】・変更履歴付の公開場所</li>
+      <li><a href="https://www.nta.go.jp/users/gensen/nenmatsu/nencho.htm">年末調整手続の電子化に向けた取組について</a>：XML定義書や年調ソフトの公開状況の更新履歴</li>
+      <li><a href="https://www.e-tax.nta.go.jp/shiyo/shiyo-withholding3.htm">源泉徴収票等のオンライン送信に係る仕様書一覧</a>：法定調書の電子送信仕様</li>
+      <li><a href="https://www.lta.go.jp/eltax/shinkoku/kyuyoshiharai/">給与支払報告書の提出</a>：令和8年分以後は「総務省通知形式CSV」、令和7年分以前は「統一CSVレイアウト」</li>
+    </ul>
+    <p>国税庁のFAQには「年調ソフト以外のソフトウェアで作成した控除申告書データが、公開しているXML定義書に則ったデータである場合は、インポートすることが可能です」とあります。自作ツールが公式ルートに乗る条件は、この一文です。</p>
+  </section>
+  <section>
+    <h2>2. 他ソフトの実装（公開情報の範囲）</h2>
+    <table>
+      <tr><th>製品</th><th>申告データの受取・連携</th></tr>
+      <tr><td>PCA給与シリーズ</td><td>「年末調整データの受入」機能で、年調ソフトと同一のXML形式を取り込む</td></tr>
+      <tr><td>給与大臣NX</td><td>令和8年版年調ソフトが出力する申告書データのインポートに対応</td></tr>
+      <tr><td>forrou（cells）</td><td>年調ソフト形式のデータ取込機能。令和8年分は仕様公開後に開発と明記</td></tr>
+      <tr><td>SmartHR</td><td>自社で集めた申告データをActRecipeの「年調ソフトXML形式 年末調整連携」でXML化し、年調ソフトや対応給与システムへ渡す。項目とXMLの対応表も公開</td></tr>
+      <tr><td>freee人事労務</td><td>給与計算から年末調整計算まで自社で完結させ、結果をfreee申告へ連携。SmartHRからの取込にも対応</td></tr>
+      <tr><td>弥生給与</td><td>eLTAX提出用CSVの項目一覧を公開し、PCdeskに取り込む運用</td></tr>
+      <tr><td>エプソン給与</td><td>国税庁の年末調整アプリ連携として、申告書データ（zip）を取り込む</td></tr>
+      <tr><td>年調・法定調書の達人</td><td>帳票イメージで入力し、給与ソフトと双方向に連動</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>3. 共通している設計（5層）</h2>
+    <p>多くの製品は次の5層で実装しています。</p>
+    <ol>
+      <li>従業員が入力する画面（Web・アプリ）</li>
+      <li>控除証明書等の電子データ取込（マイナポータル連携、QRコード付証明書）</li>
+      <li>控除額の検算と改ざん検知</li>
+      <li>給与システムへのインポート（年調ソフトXML形式）</li>
+      <li>法定調書・給与支払報告書の作成（e-Tax・eLTAX）</li>
+    </ol>
+    <p>自ツールは1から3を作り、4を独自34列CSVで代替しています。ここが唯一の分岐点です。</p>
+  </section>
+  <section>
+    <h2>4. 自ツールとの差分と今後の選択肢</h2>
+    <ul>
+      <li>独自CSVのまま進める場合：給与システム側に読み込み機能が必要で、手作業が残ります。</li>
+      <li>XML定義書に準拠させる場合：<code>staff.html</code> の <code>XML_MAP</code> に定義書の要素名を書き写し、<code>verified</code> を <code>true</code> にして、実際にインポートできることを確認します。</li>
+      <li>令和8年分は年調ソフトの正式版が10月公開予定で、定義書も更新されます。突合は確定版を待つのが安全です。</li>
+      <li>給与支払報告書は令和8年分からCSVレイアウトが変わります。自ツールのCSVと、その先の提出データは別系統であることを明示してください。</li>
+    </ul>
+  </section>
+  <section>
+    <h2>5. 未確認事項</h2>
+    <ul>
+      <li>申告書XML定義書【正式版】の要素名の全文。公開ページから取得して突合する必要があります。</li>
+      <li>給与システム側が年調ソフトXMLの取込に対応しているか。ベンダーへの確認が最短です。</li>
+      <li>日本語の年末調整OSSは実質存在しないため、実装の参考は公開仕様とベンダーの対応表になります。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
