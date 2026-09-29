@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>他システムとの接続 — 公式仕様と実装状況</title>
+<style>
+:root{--line:#d4d8dd;--ink:#1f2933;--muted:#66727f;--bg:#f6f7f9;--accent:#1d4ed8;--warn-bg:#fff7ed;--warn-line:#fdba74;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.8;}
+header{background:#fff;border-bottom:2px solid var(--ink);padding:22px 20px;}
+header h1{margin:0 0 4px;font-size:22px;}
+header .sub{color:var(--muted);font-size:13px;}
+main{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin-bottom:18px;}
+section h2{font-size:17px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+p{margin:8px 0;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0;}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+th{background:#f1f3f5;}
+ul,ol{padding-left:24px;margin:8px 0;}
+li{margin:4px 0;font-size:14px;}
+code{background:#f1f3f5;padding:1px 6px;border-radius:3px;font-size:13px;}
+a{color:var(--accent);}
+blockquote{margin:10px 0;padding:10px 14px;border-left:4px solid var(--line);background:#f8f9fa;font-size:14px;}
+.hint{font-size:12px;color:var(--muted);}
+.banner{border-left:5px solid var(--warn-line);background:var(--warn-bg);padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:14px;}
+.banner strong{display:block;margin-bottom:4px;}
+.back{font-size:13px;margin-bottom:14px;display:inline-block;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>他システムとの接続</h1>
+  <div class="sub">年末調整の申告データが、他のソフトでどう扱われているかを、公式仕様と公開情報から整理する</div>
+</header>
+
+<main>
+
+  <a class="back" href="../index.html">← トップへ戻る</a>
+
+  <div class="banner">
+    <strong>このページは調査メモです</strong>
+    断定できないことは断定せず、一次情報へのリンクと確認先を示します。仕様は毎年変わります。
+  </div>
+
+  <section>
+    <h2>1. 結論：実装を決めているのは各社のコードではなく公式仕様</h2>
+    <p>年末調整の申告データを給与システムへ渡す形式は、各社が独自に決めているのではなく、国税庁が公開する「申告書XML定義書」が事実上の共通仕様になっています。年調ソフトの出力はXMLで、その定義書が公開されています。</p>
+    <p>国税庁の「年末調整控除申告書作成用ソフトウェアに関するFAQ」は、次のように答えています。</p>
+    <blockquote>年調ソフト以外のソフトウェアで作成した控除申告書データが、公開しているXML定義書に則ったデータである場合は、インポートすることが可能です</blockquote>
+    <p>つまり、自作ツールが公式ルートに乗る条件は「XML定義書に則っていること」です。このリポジトリのXML出力は、この条件を満たしているかどうかを <code>XML_MAP.verified</code> で管理しています。</p>
+  </section>
+
+  <section>
+    <h2>2. 公式仕様</h2>
+    <table>
+      <tr><th>対象</th><th>形式</th><th>出典</th></tr>
+      <tr><td>控除申告書データ（従業員 → 勤務先）</td><td>XML（申告書XML定義書）</td><td><a href="https://www.nta.go.jp/users/gensen/oshirase/0019004-159.htm">控除申告書データに係る仕様公開（国税庁）</a><br><a href="https://www.nta.go.jp/users/gensen/nenmatsu/nencho_05.htm">年末調整申告書XMLデータに係る仕様公開・FAQ（国税庁）</a></td></tr>
+      <tr><td>控除証明書等データ</td><td>XML（マイナポータル連携・QRコード付証明書）</td><td><a href="https://www.e-tax.nta.go.jp/cps/cps.htm">QRコード付証明書等作成システム（国税庁）</a></td></tr>
+      <tr><td>給与所得の源泉徴収票（法定調書）</td><td>XML（e-Tax等）</td><td><a href="https://www.e-tax.nta.go.jp/shiyo/shiyo-withholding3.htm">源泉徴収票等のオンライン送信に係る仕様書一覧（e-Tax）</a></td></tr>
+      <tr><td>給与支払報告書（市区町村）</td><td>令和8年分以後は総務省通知形式CSV。令和7年分以前は統一CSVレイアウト</td><td><a href="https://www.lta.go.jp/eltax/shinkoku/kyuyoshiharai/">eLTAX 給与支払報告書の提出（地方税共同機構）</a></td></tr>
+      <tr><td>年調ソフト本体</td><td>令和8年分は8月にプロトタイプが公開され、正式版は10月公開の予定</td><td><a href="https://www.nta.go.jp/users/gensen/nenmatsu/nencho.htm">年末調整手続の電子化に向けた取組について（国税庁）</a></td></tr>
+    </table>
+    <p class="hint">定義書の要素名そのものは、このページには写していません。定義書を取得して、`staff.html` の `XML_MAP` に写してください。</p>
+  </section>
+
+  <section>
+    <h2>3. ベンダーの実装（公開情報の範囲）</h2>
+    <table>
+      <tr><th>製品</th><th>申告データの受取・連携</th></tr>
+      <tr><td>PCA給与シリーズ</td><td>「年末調整データの受入」機能で、年調ソフトと同一のXML形式を取り込みます。他社サービスが同形式で作成したデータの取込条件も公開しています。</td></tr>
+      <tr><td>給与大臣NX</td><td>令和8年版年調ソフトが出力する申告書データのインポートに対応しています。e-Tax・eLTAXの令和9年1月以降の電子申告にも対応しています。</td></tr>
+      <tr><td>forrou（cells）</td><td>年調ソフト形式のデータ取込機能を実装済みです。令和8年分については「関係行政機関からの仕様公開後に開発」と明記しています。</td></tr>
+      <tr><td>SmartHR</td><td>自社で集めた申告データを、ActRecipeの「年調ソフトXML形式 年末調整連携」でXMLに変換し、年調ソフトや対応する給与システムへ渡します。SmartHRの項目とXMLの対応表も公開しています。</td></tr>
+      <tr><td>freee人事労務</td><td>給与計算から年末調整計算までを自社で完結させ、結果をfreee申告へ連携します。SmartHRからの申告情報の取込にも対応しています。</td></tr>
+      <tr><td>弥生給与</td><td>eLTAX提出用CSVの項目一覧を公開し、PCdeskに取り込む運用です。</td></tr>
+      <tr><td>年調・法定調書の達人／達人Cube</td><td>帳票イメージで入力し、給与ソフトと連動します。</td></tr>
+    </table>
+    <p class="hint">各製品の内部実装は非公開です。確認できるのは、公開された取込機能・対応表・マニュアルの範囲です。</p>
+  </section>
+
+  <section>
+    <h2>4. 共通している設計（5層）</h2>
+    <ol>
+      <li>従業員が入力する画面（Webフォームまたはアプリ）</li>
+      <li>控除証明書等の電子データ取込（マイナポータル連携、QRコード付証明書）</li>
+      <li>控除額の検算と、控除証明書データの改ざん検知</li>
+      <li>給与システムへのインポート（年調ソフトXML形式、または各社の独自CSV）</li>
+      <li>法定調書・給与支払報告書の作成（e-Tax／eLTAX）</li>
+    </ol>
+    <p>このツールは1〜3を作り、4を独自CSVとXML（突合後）で担います。5は行いません。</p>
+  </section>
+
+  <section>
+    <h2>5. 確認できないこと</h2>
+    <ul>
+      <li>各社のソースコードと内部実装。公開された対応表・マニュアル以上は分かりません。</li>
+      <li>申告書XML定義書の要素名そのもの。定義書は国税庁のページから取得し、このリポジトリの <code>XML_MAP</code> に写してください。</li>
+      <li>給与システムが年調ソフトXMLの取込に対応しているか。これは各ベンダーへの確認が最短です。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. 参考：オープンソースの状況</h2>
+    <p>日本語の年末調整・給与計算のオープンソースは、探した範囲では実質存在しません。参考になるのは海外実装で、たとえばドイツの <a href="https://github.com/marcellehmann/lohnsteuer">marcellehmann/lohnsteuer</a> は、連邦財務省が公開する計算手順（Programmablaufplan）からコードを自動生成する設計です。日本にも財務省告示「電子計算機等を使用して源泉徴収税額を計算する方法」や国税庁の<a href="https://www.nta.go.jp/taxes/tetsuzuki/shinsei/annai/gensen/annai/nencho_keisan/index.htm">年末調整計算シート</a>という対応物がありますが、OSS化した例は見当たりませんでした。</p>
+  </section>
+
+</main>
+
+</body>
+</html>

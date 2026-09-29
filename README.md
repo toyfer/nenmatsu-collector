@@ -8,6 +8,7 @@
 - 公開ページ：https://toyfer.github.io/nenmatsu-collector/
 - 職員用：`staff.html`
 - 人事用：`admin.html`
+- 様式年度：令和8年分
 
 ## これは何か
 
@@ -17,10 +18,11 @@
 | ファイル | 役割 |
 |---|---|
 | `index.html` | 入口。2つのツールへのリンクと注意事項 |
-| `staff.html` | 職員用。入力、検証、下書き保存、確認書の印刷、CSV出力 |
+| `staff.html` | 職員用。入力、検証、下書き保存、確認書の印刷、CSV出力、XML出力 |
 | `admin.html` | 人事用。集約、検証、未提出者の抽出、前年差分レビュー、CSV出力 |
 | `samples/` | 動作確認用のサンプル（氏名・住所はすべて架空） |
 | `docs/verification.html` | 信頼性の担保方法と検証手順、税務上の確認事項 |
+| `docs/interop.html` | 他システムとの接続。公式仕様と各社の実装状況の調査メモ |
 
 ## 動作要件
 
@@ -36,6 +38,7 @@
 4. 必要に応じて「下書きを保存」でファイルに残します。翌年はこれを「下書きを読込」で読み込むと、変更点だけ直せます。
 5. 「確認書を印刷」で確認書を出し、自署・押印します。
 6. 「提出用CSVを出力」し、人事（給与担当）へ提出します。
+7. 必要に応じて「提出用XMLを出力」します（下記「XMLの出力」を参照）。
 
 ## 使い方（人事）
 
@@ -52,8 +55,9 @@
 - マイナポータル連携による控除証明書データの取得はできません。
 - 法定調書・源泉徴収票の作成はできません。
 - 申告内容の確定は行いません。最終判断は担当者の確認によります。
+- 国税庁の「申告書XML定義書」との突合が済むまで、定義書に準拠したXMLは出力しません（下記「XMLの出力」を参照）。
 
-## データ形式
+## データ形式（CSV）
 
 提出CSVは34列です。列の並びがすべての基準であり、`staff.html` と `admin.html` で同じ順序に保つ必要があります。
 
@@ -71,6 +75,48 @@
 
 列の並びはCSVの互換性の基準です。列を増減する場合は、`staff.html` と `admin.html` の `COLS` を同じ順序に揃え、`samples/` のサンプルCSVも作り直してください（サンプルは列の並びに依存してチェックサムを保持しています）。
 
+## XMLの出力
+
+国税庁は「申告書XML定義書」を公開しています。年調ソフト以外のソフトウェアが作成したデータでも、この定義書に則っていれば給与システム等にインポートできるとされています（国税庁「年末調整控除申告書作成用ソフトウェアに関するFAQ」）。このツールにも、その条件を満たすためのXML出力を持たせています。
+
+**要素名の突合が済むまでは、公式インポート用のXMLを出力しません。** `staff.html` の `XML_MAP` が唯一の対応表で、既定は `verified: false` です。この設計にしているのは、定義書を確認せずに推測で要素名を書くと、給与システムが受け取れないファイルを「公式用」として配ってしまうためです。
+
+### 突合手順
+
+1. 国税庁「控除申告書データに係る仕様公開」から「申告書XML定義書【正式版】」を取得します。
+2. 定義書の要素名を `staff.html` の `XML_MAP` に書き写します（`root`、`rootAttributes`、`fields`、`dependents`）。
+3. `verified` を `true` にし、年調ソフトまたは給与システムへ実際にインポートして、受け入れられることを確認します。
+4. 確認できたら記録を残します（誰が、いつ、どの定義書のバージョンで確認したか）。
+
+突合が済むまでは「XML構造ドラフト（非公式）」のみ出力できます。これは `DRAFT_` を前置した要素に項目を並べたもので、定義書には準拠しておらず、給与システムへの提出用には使えません。項目の過不足を確認するための作業用です。
+
+XMLを給与システムへ渡すか、CSVを渡すかは、受け取り側の対応で決まります。給与システムが年調ソフトXMLの取込に対応しているかは、そのベンダーへの確認が最短です。
+
+## 構成と年度ごとの分離
+
+様式も控除額も毎年変わるため、年度ごとに実装を分けます。
+
+現在（令和8年分のみ）は、`staff.html` と `admin.html` がルートにあり、`samples/` は年度をまたいだ混在フィクスチャです（年度不一致の警告を試すため）。
+
+令和9年分を迎えるときは、次の形に組み替えます。`staff.html` と `admin.html` は年度ごとに完結した1ファイルずつとし、共有アセットを持ちません（`file://` で開く運用を壊さないため）。
+
+```
+/index.html          … 年度ハブ（令和8年分 / 令和9年分）
+/r8/index.html
+/r8/staff.html
+/r8/admin.html
+/r9/index.html
+/r9/staff.html
+/r9/admin.html
+/docs/verification.html
+/docs/interop.html
+/samples/            … 年度をまたいだ混在フィクスチャ
+/staff.html          … 旧URL。最新年度へ案内
+/admin.html          … 旧URL。最新年度へ案内
+```
+
+年度の切り替えは、前年度のディレクトリを複製してから `FORM_YEAR` と `TOOL_VERSION` を更新する順で行います。前年度のディレクトリは凍結し、書き換えません。`TOOL_VERSION` は `staff.html` と `admin.html` で必ず一致させてください（一致しないと人事側で「ツール版が違います」という警告が出ます）。
+
 ## 一次情報（国税庁）
 
 様式・取扱いの判断は、必ず次の一次情報で確認してください。このリポジトリの記述は、一次情報に代わるものではありません。
@@ -79,7 +125,12 @@
 - 令和8年分年末調整のしかた（手順などの説明）：https://www.nta.go.jp/users/gensen/nencho/index/shikata.htm
 - 年末調整関係書類（国税庁）：https://www.nta.go.jp/users/gensen/nencho_shorui/index.htm
 - 令和8年度税制改正による所得税の基礎控除の引上げ等：https://www.nta.go.jp/users/gensen/2026kiso/index.htm
+- 控除申告書データに係る仕様公開（申告書XML定義書）：https://www.nta.go.jp/users/gensen/oshirase/0019004-159.htm
+- 年末調整申告書XMLデータに係る仕様公開・FAQ：https://www.nta.go.jp/users/gensen/nenmatsu/nencho_05.htm
+- 年末調整手続の電子化に向けた取組について：https://www.nta.go.jp/users/gensen/nenmatsu/nencho.htm
 - 年末調整手続の電子化及び年調ソフト等に関するFAQ：https://www.nta.go.jp/users/gensen/nenmatsu/pdf/nencho_faq.pdf
+- 源泉徴収票等のオンライン送信に係る仕様書一覧（e-Tax）：https://www.e-tax.nta.go.jp/shiyo/shiyo-withholding3.htm
+- 給与支払報告書の提出（eLTAX）：https://www.lta.go.jp/eltax/shinkoku/kyuyoshiharai/
 - 給与所得の源泉徴収票等の法定調書の作成と提出の手引：https://www.nta.go.jp/publication/pamph/hotei/tebiki2025/PDF/all.pdf
 
 ## 改造の勘所
@@ -87,6 +138,7 @@
 - 項目を増減する場合は `staff.html` と `admin.html` の両方の `COLS` を同じ順序で揃えてください。
 - 入力チェックの条件は、両ファイルの `validate()` にあります。
 - 年度を変えるときは `TOOL_VERSION` と `FORM_YEAR` を更新してください。
+- XMLの要素名は `staff.html` の `XML_MAP` に集約してあります。コード側は触らず、対応表だけを書き換えます。
 - 見た目は各ファイルの `<style>` に完結しています。
 
 ## 注意
